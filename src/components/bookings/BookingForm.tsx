@@ -37,7 +37,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose }) => {
         booking_type: formData.booking_type,
         estimated_cost: formData.estimated_cost ? parseFloat(formData.estimated_cost) : null,
         notes: formData.notes || null,
-        status: 'pending'
+        status: 'pending' as const
       };
 
       const { error } = await supabase

@@ -58,10 +58,10 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
     try {
       const vehicleData = {
         vehicle_number: formData.vehicle_number,
-        type: formData.type,
+        type: formData.type as "SUV" | "hatchback" | "sedan" | "XUV",
         comfort_level: parseInt(formData.comfort_level),
         rate_per_km: parseFloat(formData.rate_per_km),
-        status: formData.status,
+        status: formData.status as "available" | "maintenance" | "out_of_service",
         vendor_id: formData.vendor_id || null,
         last_serviced_date: formData.last_serviced_date || null
       };
