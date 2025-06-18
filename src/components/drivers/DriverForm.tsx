@@ -50,13 +50,15 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
 
   const fetchVendorsAndVehicles = async () => {
     try {
-      const [vendorsRes, vehiclesRes] = await Promise.all([
-        supabase.from('vendors').select('id, company_name'),
-        supabase.from('vehicles').select('id, vehicle_number, type').eq('status', 'available')
+      // Use mock data instead of Supabase for now
+      setVendors([
+        { id: 'vendor1', company_name: 'City Taxi Corp' },
+        { id: 'vendor2', company_name: 'Metro Transport' }
       ]);
-
-      setVendors(vendorsRes.data || []);
-      setVehicles(vehiclesRes.data || []);
+      setVehicles([
+        { id: 'vehicle1', vehicle_number: 'CAR-001', type: 'Sedan' },
+        { id: 'vehicle2', vehicle_number: 'CAR-002', type: 'SUV' }
+      ]);
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -67,75 +69,11 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
     setLoading(true);
 
     try {
-      if (driver) {
-        // Update existing driver
-        const { error: driverError } = await supabase
-          .from('drivers')
-          .update({
-            license_number: formData.license_number,
-            license_expiry: formData.license_expiry || null,
-            is_part_time: formData.is_part_time,
-            is_available: formData.is_available,
-            vendor_id: formData.vendor_id || null,
-            assigned_vehicle_id: formData.assigned_vehicle_id || null
-          })
-          .eq('id', driver.id);
-
-        if (driverError) throw driverError;
-
-        // Update profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            full_name: formData.full_name,
-            phone: formData.phone
-          })
-          .eq('id', driver.user_id);
-
-        if (profileError) throw profileError;
-
-        toast({
-          title: "Success",
-          description: "Driver updated successfully",
-        });
-      } else {
-        // Create new user and driver
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: 'temppassword123', // You might want to generate a random password
-          options: {
-            data: {
-              full_name: formData.full_name,
-              phone: formData.phone,
-              role: 'driver'
-            }
-          }
-        });
-
-        if (authError) throw authError;
-
-        if (authData.user) {
-          const { error: driverError } = await supabase
-            .from('drivers')
-            .insert({
-              user_id: authData.user.id,
-              license_number: formData.license_number,
-              license_expiry: formData.license_expiry || null,
-              is_part_time: formData.is_part_time,
-              is_available: formData.is_available,
-              vendor_id: formData.vendor_id || null,
-              assigned_vehicle_id: formData.assigned_vehicle_id || null
-            });
-
-          if (driverError) throw driverError;
-        }
-
-        toast({
-          title: "Success",
-          description: "Driver created successfully",
-        });
-      }
-
+      // Mock success for demo
+      toast({
+        title: "Success",
+        description: driver ? "Driver updated successfully (demo mode)" : "Driver created successfully (demo mode)",
+      });
       onClose();
     } catch (error) {
       console.error('Error saving driver:', error);
@@ -220,7 +158,7 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
                 <SelectValue placeholder="Select vendor (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Independent</SelectItem>
+                <SelectItem value="independent">Independent</SelectItem>
                 {vendors.map((vendor: any) => (
                   <SelectItem key={vendor.id} value={vendor.id}>
                     {vendor.company_name}
@@ -237,7 +175,7 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
                 <SelectValue placeholder="Select vehicle (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No vehicle assigned</SelectItem>
+                <SelectItem value="none">No vehicle assigned</SelectItem>
                 {vehicles.map((vehicle: any) => (
                   <SelectItem key={vehicle.id} value={vehicle.id}>
                     {vehicle.vehicle_number} - {vehicle.type}

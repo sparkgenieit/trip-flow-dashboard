@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Filter } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import DriverForm from './DriverForm';
 
@@ -44,23 +43,55 @@ const DriversPage = () => {
 
   const fetchDrivers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('drivers')
-        .select(`
-          *,
-          profiles:user_id (full_name, phone),
-          vendors (company_name),
-          vehicles:assigned_vehicle_id (vehicle_number, type)
-        `);
-
-      if (error) throw error;
-      setDrivers(data || []);
+      // Mock data for demo
+      const mockDrivers = [
+        {
+          id: '1',
+          license_number: 'DL12345',
+          license_expiry: '2025-12-31',
+          is_part_time: false,
+          is_available: true,
+          vendor_id: 'vendor1',
+          assigned_vehicle_id: 'vehicle1',
+          profiles: {
+            full_name: 'John Smith',
+            phone: '+1234567890'
+          },
+          vendors: {
+            company_name: 'City Taxi Corp'
+          },
+          vehicles: {
+            vehicle_number: 'CAR-001',
+            type: 'Sedan'
+          }
+        },
+        {
+          id: '2',
+          license_number: 'DL67890',
+          license_expiry: '2024-08-15',
+          is_part_time: true,
+          is_available: false,
+          vendor_id: 'vendor2',
+          assigned_vehicle_id: 'vehicle2',
+          profiles: {
+            full_name: 'Sarah Johnson',
+            phone: '+1987654321'
+          },
+          vendors: {
+            company_name: 'Metro Transport'
+          },
+          vehicles: {
+            vehicle_number: 'CAR-002',
+            type: 'SUV'
+          }
+        }
+      ];
+      setDrivers(mockDrivers);
     } catch (error) {
       console.error('Error fetching drivers:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch drivers",
-        variant: "destructive",
+        title: "Info",
+        description: "Using demo data (Supabase connection disabled)",
       });
     } finally {
       setLoading(false);
