@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Filter } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import VendorForm from './VendorForm';
 
@@ -33,9 +32,41 @@ const VendorsPage = () => {
 
   const fetchVendors = async () => {
     try {
-      const { data, error } = await supabase.from('vendors').select('*');
-      if (error) throw error;
-      setVendors(data || []);
+      // Mock data to avoid Supabase errors
+      const mockVendors = [
+        {
+          id: '1',
+          company_name: 'City Taxi Corp',
+          contact_person: 'John Manager',
+          phone: '+1234567890',
+          email: 'contact@citytaxi.com',
+          address: '123 Main St, City, State',
+          commission_rate: 15.00
+        },
+        {
+          id: '2',
+          company_name: 'Metro Transport',
+          contact_person: 'Sarah Wilson',
+          phone: '+1987654321',
+          email: 'info@metrotransport.com',
+          address: '456 Oak Ave, Metro City',
+          commission_rate: 12.50
+        },
+        {
+          id: '3',
+          company_name: 'Quick Rides',
+          contact_person: 'Mike Rodriguez',
+          phone: '+1555666777',
+          email: 'hello@quickrides.com',
+          address: '789 Pine Rd, Downtown',
+          commission_rate: 18.00
+        }
+      ];
+      setVendors(mockVendors);
+      toast({
+        title: "Info",
+        description: "Using demo data (Supabase connection disabled)",
+      });
     } catch (error) {
       console.error('Error fetching vendors:', error);
       toast({

@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface VendorFormProps {
@@ -43,29 +42,13 @@ const VendorForm: React.FC<VendorFormProps> = ({ vendor, onClose }) => {
     setLoading(true);
 
     try {
-      const vendorData = {
-        company_name: formData.company_name,
-        contact_person: formData.contact_person || null,
-        phone: formData.phone || null,
-        email: formData.email || null,
-        address: formData.address || null,
-        commission_rate: formData.commission_rate ? parseFloat(formData.commission_rate) : 10.00
-      };
-
-      if (vendor) {
-        const { error } = await supabase
-          .from('vendors')
-          .update(vendorData)
-          .eq('id', vendor.id);
-        if (error) throw error;
-        toast({ title: "Success", description: "Vendor updated successfully" });
-      } else {
-        const { error } = await supabase
-          .from('vendors')
-          .insert(vendorData);
-        if (error) throw error;
-        toast({ title: "Success", description: "Vendor created successfully" });
-      }
+      // Mock success for demo
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({ 
+        title: "Success", 
+        description: vendor ? "Vendor updated successfully (demo mode)" : "Vendor created successfully (demo mode)" 
+      });
 
       onClose();
     } catch (error) {
