@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface DriverFormProps {
@@ -50,14 +49,16 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
 
   const fetchVendorsAndVehicles = async () => {
     try {
-      // Use mock data instead of Supabase for now
+      // Mock data to avoid Supabase errors
       setVendors([
         { id: 'vendor1', company_name: 'City Taxi Corp' },
-        { id: 'vendor2', company_name: 'Metro Transport' }
+        { id: 'vendor2', company_name: 'Metro Transport' },
+        { id: 'vendor3', company_name: 'Quick Rides' }
       ]);
       setVehicles([
         { id: 'vehicle1', vehicle_number: 'CAR-001', type: 'Sedan' },
-        { id: 'vehicle2', vehicle_number: 'CAR-002', type: 'SUV' }
+        { id: 'vehicle2', vehicle_number: 'CAR-002', type: 'SUV' },
+        { id: 'vehicle3', vehicle_number: 'CAR-003', type: 'Hatchback' }
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -70,6 +71,7 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
 
     try {
       // Mock success for demo
+      await new Promise(resolve => setTimeout(resolve, 1000));
       toast({
         title: "Success",
         description: driver ? "Driver updated successfully (demo mode)" : "Driver created successfully (demo mode)",

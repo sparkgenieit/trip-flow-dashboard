@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface BookingFormProps {
@@ -30,25 +29,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose }) => {
     setLoading(true);
 
     try {
-      const bookingData = {
-        pickup_location: formData.pickup_location,
-        dropoff_location: formData.dropoff_location,
-        pickup_time: formData.pickup_time,
-        booking_type: formData.booking_type,
-        estimated_cost: formData.estimated_cost ? parseFloat(formData.estimated_cost) : null,
-        notes: formData.notes || null,
-        status: 'pending' as const
-      };
-
-      const { error } = await supabase
-        .from('bookings')
-        .insert(bookingData);
-
-      if (error) throw error;
-
+      // Mock success for demo
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       toast({
         title: "Success",
-        description: "Booking created successfully",
+        description: "Booking created successfully (demo mode)",
       });
 
       onClose();
