@@ -4,8 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, MapPin, Clock, AlertTriangle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Search, Filter, MapPin, Clock, AlertTriangle, Phone, MapIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Trip {
@@ -47,24 +46,92 @@ const TripsPage = () => {
 
   const fetchTrips = async () => {
     try {
-      const { data, error } = await supabase
-        .from('trips')
-        .select(`
-          *,
-          bookings:booking_id (
-            pickup_location,
-            dropoff_location,
-            profiles:customer_id (full_name)
-          ),
-          drivers:driver_id (
-            profiles:user_id (full_name)
-          ),
-          vehicles:vehicle_id (vehicle_number)
-        `)
-        .order('start_time', { ascending: false });
-
-      if (error) throw error;
-      setTrips(data || []);
+      // Mock data to avoid Supabase errors
+      const mockTrips = [
+        {
+          id: '1',
+          start_time: '2024-06-19T08:30:00',
+          end_time: '2024-06-19T10:45:00',
+          start_location: 'Airport Terminal 1',
+          end_location: 'Downtown Hotel',
+          actual_distance: 25.5,
+          status: 'completed',
+          breakdown_reported: false,
+          breakdown_notes: '',
+          bookings: {
+            pickup_location: 'Airport Terminal 1',
+            dropoff_location: 'Downtown Hotel',
+            profiles: {
+              full_name: 'John Doe'
+            }
+          },
+          drivers: {
+            profiles: {
+              full_name: 'Mike Wilson'
+            }
+          },
+          vehicles: {
+            vehicle_number: 'CAR-001'
+          }
+        },
+        {
+          id: '2',
+          start_time: '2024-06-19T14:15:00',
+          end_time: null,
+          start_location: 'Business District',
+          end_location: 'Tech Park',
+          actual_distance: 0,
+          status: 'started',
+          breakdown_reported: false,
+          breakdown_notes: '',
+          bookings: {
+            pickup_location: 'Business District',
+            dropoff_location: 'Tech Park',
+            profiles: {
+              full_name: 'Sarah Johnson'
+            }
+          },
+          drivers: {
+            profiles: {
+              full_name: 'David Lee'
+            }
+          },
+          vehicles: {
+            vehicle_number: 'CAR-002'
+          }
+        },
+        {
+          id: '3',
+          start_time: '2024-06-19T16:00:00',
+          end_time: null,
+          start_location: 'Shopping Mall',
+          end_location: 'Residential Area',
+          actual_distance: 0,
+          status: 'breakdown',
+          breakdown_reported: true,
+          breakdown_notes: 'Engine overheating issue reported by driver',
+          bookings: {
+            pickup_location: 'Shopping Mall',
+            dropoff_location: 'Residential Area',
+            profiles: {
+              full_name: 'Alex Brown'
+            }
+          },
+          drivers: {
+            profiles: {
+              full_name: 'Emily Davis'
+            }
+          },
+          vehicles: {
+            vehicle_number: 'CAR-003'
+          }
+        }
+      ];
+      setTrips(mockTrips);
+      toast({
+        title: "Info",
+        description: "Using demo data (Supabase connection disabled)",
+      });
     } catch (error) {
       console.error('Error fetching trips:', error);
       toast({
@@ -83,8 +150,23 @@ const TripsPage = () => {
       case 'started': return 'default';
       case 'completed': return 'outline';
       case 'cancelled': return 'destructive';
+      case 'breakdown': return 'destructive';
       default: return 'secondary';
     }
+  };
+
+  const handleTripAssistance = (tripId: string) => {
+    toast({
+      title: "Trip Assistance",
+      description: "Emergency assistance has been notified for this trip",
+    });
+  };
+
+  const handleContactDriver = (tripId: string) => {
+    toast({
+      title: "Contacting Driver",
+      description: "Connecting you with the driver...",
+    });
   };
 
   const filteredTrips = trips.filter(trip =>
@@ -102,7 +184,7 @@ const TripsPage = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Trips</h2>
-          <p className="text-muted-foreground">Monitor ongoing and completed trips</p>
+          <p className="text-muted-foreground">Monitor ongoing and completed trips with assistance</p>
         </div>
       </div>
 
@@ -199,10 +281,20 @@ const TripsPage = () => {
 
               <div className="mt-4 flex space-x-2">
                 <Button size="sm" variant="outline">
+                  <MapIcon className="mr-1 h-3 w-3" />
                   Track Trip
                 </Button>
-                <Button size="sm" variant="outline">
+                <Button size="sm" variant="outline" onClick={() => handleContactDriver(trip.id)}>
+                  <Phone className="mr-1 h-3 w-3" />
                   Contact Driver
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant={trip.breakdown_reported ? "destructive" : "outline"}
+                  onClick={() => handleTripAssistance(trip.id)}
+                >
+                  <AlertTriangle className="mr-1 h-3 w-3" />
+                  Trip Assistance
                 </Button>
                 <Button size="sm" variant="outline">
                   View Details

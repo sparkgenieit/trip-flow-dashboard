@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from '@/hooks/use-toast';
 
 interface BookingFormProps {
+  booking?: any;
   onClose: () => void;
 }
 
-const BookingForm: React.FC<BookingFormProps> = ({ onClose }) => {
+const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
   const [formData, setFormData] = useState({
     pickup_location: '',
     dropoff_location: '',
@@ -24,6 +25,19 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose }) => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (booking) {
+      setFormData({
+        pickup_location: booking.pickup_location || '',
+        dropoff_location: booking.dropoff_location || '',
+        pickup_time: booking.pickup_time ? booking.pickup_time.slice(0, 16) : '',
+        booking_type: booking.booking_type || 'individual',
+        estimated_cost: booking.estimated_cost?.toString() || '',
+        notes: booking.notes || ''
+      });
+    }
+  }, [booking]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -34,7 +48,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose }) => {
       
       toast({
         title: "Success",
-        description: "Booking created successfully (demo mode)",
+        description: booking ? "Booking updated successfully (demo mode)" : "Booking created successfully (demo mode)",
       });
 
       onClose();
@@ -42,7 +56,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose }) => {
       console.error('Error saving booking:', error);
       toast({
         title: "Error",
-        description: "Failed to create booking",
+        description: "Failed to save booking",
         variant: "destructive",
       });
     } finally {
@@ -54,9 +68,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose }) => {
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Booking</DialogTitle>
+          <DialogTitle>{booking ? 'Edit Booking' : 'Create New Booking'}</DialogTitle>
           <DialogDescription>
-            Enter details for the new booking
+            {booking ? 'Update booking details' : 'Enter details for the new booking'}
           </DialogDescription>
         </DialogHeader>
         
@@ -131,7 +145,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose }) => {
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Booking'}
+              {loading ? 'Saving...' : booking ? 'Update Booking' : 'Create Booking'}
             </Button>
           </DialogFooter>
         </form>
