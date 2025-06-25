@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +24,8 @@ const CorporateBookingForm: React.FC<CorporateBookingFormProps> = ({ onClose }) 
     end_date: '',
     booking_type: 'daily',
     number_of_vehicles: '1',
-    vehicle_type: 'sedan',
+    vehicle_type: '',
+    vehicle_model: '',
     estimated_passengers: '1',
     special_requirements: '',
     budget_range: '',
@@ -33,6 +33,20 @@ const CorporateBookingForm: React.FC<CorporateBookingFormProps> = ({ onClose }) 
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  const vehicleOptions = {
+    hatchback: ['Swift', 'Wagon R', 'Alto', 'i10', 'Santro'],
+    sedan: ['Dzire', 'Etios', 'Amaze', 'Xcent', 'City'],
+    suv: ['Innova Crysta', 'Ertiga', 'Scorpio', 'XUV300', 'Brezza']
+  };
+
+  const handleVehicleTypeChange = (value: string) => {
+    setFormData({ 
+      ...formData, 
+      vehicle_type: value,
+      vehicle_model: '' // Reset model when type changes
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,20 +224,57 @@ const CorporateBookingForm: React.FC<CorporateBookingFormProps> = ({ onClose }) 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="vehicle_type">Preferred Vehicle Type</Label>
-              <Select value={formData.vehicle_type} onValueChange={(value) => setFormData({ ...formData, vehicle_type: value })}>
+              <Select value={formData.vehicle_type} onValueChange={handleVehicleTypeChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select vehicle type" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="hatchback">Hatchback</SelectItem>
                   <SelectItem value="sedan">Sedan</SelectItem>
                   <SelectItem value="suv">SUV</SelectItem>
-                  <SelectItem value="van">Van</SelectItem>
-                  <SelectItem value="bus">Bus</SelectItem>
                   <SelectItem value="mixed">Mixed Fleet</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
+            {formData.vehicle_type && formData.vehicle_type !== 'mixed' && (
+              <div className="space-y-2">
+                <Label htmlFor="vehicle_model">Preferred Vehicle Model</Label>
+                <Select value={formData.vehicle_model} onValueChange={(value) => setFormData({ ...formData, vehicle_model: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select vehicle model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vehicleOptions[formData.vehicle_type as keyof typeof vehicleOptions]?.map((model) => (
+                      <SelectItem key={model} value={model.toLowerCase().replace(' ', '_')}>
+                        {model}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {formData.vehicle_type === 'mixed' && (
+              <div className="space-y-2">
+                <Label htmlFor="budget_range">Budget Range</Label>
+                <Select value={formData.budget_range} onValueChange={(value) => setFormData({ ...formData, budget_range: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select budget range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="under_50k">Under ₹50,000</SelectItem>
+                    <SelectItem value="50k_100k">₹50,000 - ₹1,00,000</SelectItem>
+                    <SelectItem value="100k_250k">₹1,00,000 - ₹2,50,000</SelectItem>
+                    <SelectItem value="250k_500k">₹2,50,000 - ₹5,00,000</SelectItem>
+                    <SelectItem value="above_500k">Above ₹5,00,000</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          {!formData.vehicle_type || formData.vehicle_type === 'mixed' ? (
             <div className="space-y-2">
               <Label htmlFor="budget_range">Budget Range</Label>
               <Select value={formData.budget_range} onValueChange={(value) => setFormData({ ...formData, budget_range: value })}>
@@ -239,7 +290,7 @@ const CorporateBookingForm: React.FC<CorporateBookingFormProps> = ({ onClose }) 
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="special_requirements">Special Requirements</Label>

@@ -19,11 +19,19 @@ const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
     dropoff_location: '',
     pickup_time: '',
     booking_type: 'individual',
+    vehicle_type: '',
+    vehicle_model: '',
     estimated_cost: '',
     notes: ''
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  const vehicleOptions = {
+    hatchback: ['Swift', 'Wagon R', 'Alto', 'i10', 'Santro'],
+    sedan: ['Dzire', 'Etios', 'Amaze', 'Xcent', 'City'],
+    suv: ['Innova Crysta', 'Ertiga', 'Scorpio', 'XUV300', 'Brezza']
+  };
 
   useEffect(() => {
     if (booking) {
@@ -32,11 +40,21 @@ const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
         dropoff_location: booking.dropoff_location || '',
         pickup_time: booking.pickup_time ? booking.pickup_time.slice(0, 16) : '',
         booking_type: booking.booking_type || 'individual',
+        vehicle_type: booking.vehicle_type || '',
+        vehicle_model: booking.vehicle_model || '',
         estimated_cost: booking.estimated_cost?.toString() || '',
         notes: booking.notes || ''
       });
     }
   }, [booking]);
+
+  const handleVehicleTypeChange = (value: string) => {
+    setFormData({ 
+      ...formData, 
+      vehicle_type: value,
+      vehicle_model: '' // Reset model when type changes
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +84,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{booking ? 'Edit Booking' : 'Create New Booking'}</DialogTitle>
           <DialogDescription>
@@ -118,6 +136,38 @@ const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="vehicle_type">Vehicle Type</Label>
+            <Select value={formData.vehicle_type} onValueChange={handleVehicleTypeChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select vehicle type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hatchback">Hatchback</SelectItem>
+                <SelectItem value="sedan">Sedan</SelectItem>
+                <SelectItem value="suv">SUV</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {formData.vehicle_type && (
+            <div className="space-y-2">
+              <Label htmlFor="vehicle_model">Vehicle Model</Label>
+              <Select value={formData.vehicle_model} onValueChange={(value) => setFormData({ ...formData, vehicle_model: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select vehicle model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicleOptions[formData.vehicle_type as keyof typeof vehicleOptions]?.map((model) => (
+                    <SelectItem key={model} value={model.toLowerCase().replace(' ', '_')}>
+                      {model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="estimated_cost">Estimated Cost</Label>
