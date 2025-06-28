@@ -20,6 +20,13 @@ export const useAuth = () => {
   return context;
 };
 
+// Hardcoded credentials for testing
+const VALID_CREDENTIALS = [
+  { email: 'admin@tripflow.com', password: 'admin123' },
+  { email: 'test@example.com', password: 'test123' },
+  { email: 'user@demo.com', password: 'demo123' }
+];
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,23 +47,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       
-      // Replace this URL with your NestJS backend login endpoint
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      // Check against hardcoded credentials
+      const validCredential = VALID_CREDENTIALS.find(
+        cred => cred.email === email && cred.password === password
+      );
 
-      if (!response.ok) {
+      if (!validCredential) {
         throw new Error('Invalid credentials');
       }
 
-      const data = await response.json();
+      // Simulate API response with mock token
+      const mockToken = `mock_token_${Date.now()}`;
       
       // Store the token and user email in localStorage
-      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('authToken', mockToken);
       localStorage.setItem('userEmail', email);
       
       setUser({ email });
