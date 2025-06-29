@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { CheckSquare, x, edit } from 'lucide-react';
+import { CheckSquare, X, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Booking {
@@ -177,7 +177,7 @@ const BookingApproval = () => {
                         onClick={() => handleReject(booking.id)}
                         className="text-red-600 hover:text-red-700"
                       >
-                        <x className="h-4 w-4" />
+                        <X className="h-4 w-4" />
                       </Button>
                       <Button 
                         variant="outline" 
@@ -185,7 +185,7 @@ const BookingApproval = () => {
                         onClick={() => handleRequestChange(booking.id)}
                         className="text-blue-600 hover:text-blue-700"
                       >
-                        <edit className="h-4 w-4" />
+                        <Edit className="h-4 w-4" />
                       </Button>
                     </div>
                   )}
