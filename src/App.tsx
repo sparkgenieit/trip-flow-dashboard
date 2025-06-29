@@ -18,6 +18,7 @@ import TripsPage from "@/components/trips/TripsPage";
 import InvoicesPage from "@/components/invoices/InvoicesPage";
 import FeedbackPage from "@/components/feedback/FeedbackPage";
 import ReportsPage from "@/components/reports/ReportsPage";
+import CorporateDashboard from "@/components/corporate/CorporateDashboard";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="invoices" element={<InvoicesPage />} />
               <Route path="feedback" element={<FeedbackPage />} />
               <Route path="reports" element={<ReportsPage />} />
+              <Route path="corporate/*" element={<CorporateDashboard />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

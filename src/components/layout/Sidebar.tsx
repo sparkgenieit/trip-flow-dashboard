@@ -25,6 +25,7 @@ const navigation = [
   { name: 'Invoices', href: '/dashboard/invoices', icon: FileText },
   { name: 'Feedback', href: '/dashboard/feedback', icon: MessageSquare },
   { name: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
+  { name: 'Corporate', href: '/dashboard/corporate', icon: Building2 },
 ];
 
 const Sidebar = () => {
@@ -39,7 +40,8 @@ const Sidebar = () => {
       
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navigation.map((item) => {
-          const isActive = location.pathname === item.href;
+          const isActive = location.pathname === item.href || 
+            (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
           return (
             <Link
               key={item.name}
