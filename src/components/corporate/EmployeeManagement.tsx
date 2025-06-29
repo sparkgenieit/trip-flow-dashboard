@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Users, edit, trash-2 } from 'lucide-react';
+import { Users, Edit, Trash2 } from 'lucide-react';
 
 interface Employee {
   id: string;
@@ -151,10 +151,10 @@ const EmployeeManagement = () => {
                 <TableCell>
                   <div className="flex space-x-2">
                     <Button variant="outline" size="sm">
-                      <edit className="h-4 w-4" />
+                      <Edit className="h-4 w-4" />
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => handleDeleteEmployee(employee.id)}>
-                      <trash-2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
