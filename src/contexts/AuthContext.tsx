@@ -1,9 +1,20 @@
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { jwtDecode } from "jwt-decode";
+import { useToast } from "@/hooks/use-toast";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
+interface User {
+  email: string;
+  role: string;
+}
 
 interface AuthContextType {
-  user: { email: string } | null;
+  user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -14,104 +25,96 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
 
-// Hardcoded credentials for testing
-const VALID_CREDENTIALS = [
-  { email: 'admin@tripflow.com', password: 'admin123' },
-  { email: 'test@example.com', password: 'test123' },
-  { email: 'user@demo.com', password: 'demo123' }
-];
+interface DecodedToken {
+  email: string;
+  role: string;
+  exp?: number;
+}
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<{ email: string } | null>(null);
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    // Check if auth token exists in localStorage
-    const token = localStorage.getItem('authToken');
-    const userEmail = localStorage.getItem('userEmail');
-    
-    if (token && userEmail) {
-      setUser({ email: userEmail });
+useEffect(() => {
+  (async () => {
+    const token = localStorage.getItem("authToken");
+    console.log("Token in localStorage:", token);
+
+    if (token) {
+      try {
+        const decoded: DecodedToken = jwtDecode(token);
+        console.log("Decoded from localStorage:", decoded);
+
+        if (decoded.email && decoded.role) {
+          setUser({ email: decoded.email, role: decoded.role });
+        } else {
+          console.warn("Missing fields in token");
+          localStorage.removeItem("authToken");
+        }
+      } catch (e) {
+        console.error("Invalid token", e);
+        localStorage.removeItem("authToken");
+      }
     }
     setLoading(false);
-  }, []);
+  })();
+}, []);
+
 
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      
-      // Check against hardcoded credentials
-      const validCredential = VALID_CREDENTIALS.find(
-        cred => cred.email === email && cred.password === password
-      );
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-      if (!validCredential) {
-        throw new Error('Invalid credentials');
+      if (!res.ok) throw new Error("Invalid credentials");
+
+      const { access_token } = await res.json();
+      const decoded: DecodedToken = jwtDecode(access_token);
+
+      if (!decoded.email || !decoded.role) {
+        throw new Error("Token missing required fields");
       }
 
-      // Simulate API response with mock token
-      const mockToken = `mock_token_${Date.now()}`;
-      
-      // Store the token and user email in localStorage
-      localStorage.setItem('authToken', mockToken);
-      localStorage.setItem('userEmail', email);
-      
-      setUser({ email });
+      localStorage.setItem("authToken", access_token);
+      setUser({ email: decoded.email, role: decoded.role });
 
-      toast({
-        title: "Success",
-        description: "Signed in successfully",
-      });
-    } catch (error: any) {
+      toast({ title: "Success", description: "Signed in successfully" });
+    } catch (err: any) {
       toast({
         title: "Error",
-        description: error.message || "Login failed",
+        description: err.message || "Login failed",
         variant: "destructive",
       });
-      throw error;
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
   const signOut = async () => {
-    try {
-      // Remove token and user data from localStorage
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userEmail');
-      
-      setUser(null);
-      
-      toast({
-        title: "Success",
-        description: "Signed out successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    localStorage.removeItem("authToken");
+    setUser(null);
+    toast({ title: "Success", description: "Signed out successfully" });
   };
 
-  // Check if user is admin (you can customize this logic)
-  const isAdmin = user?.email === 'admin@tripflow.com';
+  const isAdmin = user?.role === "ADMIN";
 
-  const value = {
-    user,
-    loading,
-    signIn,
-    signOut,
-    isAdmin
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, isAdmin }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };

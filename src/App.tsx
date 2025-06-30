@@ -31,7 +31,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/dashboard" element={
+        
+            <Route path="/dashboard/*" element={
               <ProtectedRoute requireAdmin={true}>
                 <DashboardLayout />
               </ProtectedRoute>

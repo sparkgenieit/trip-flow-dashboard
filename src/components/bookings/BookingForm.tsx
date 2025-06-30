@@ -1,58 +1,102 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { createBooking, updateBooking, fetchUserByEmail } from '@/services/bookings';
 
 interface BookingFormProps {
   booking?: any;
   onClose: () => void;
+  onSuccess: () => void;
 }
 
-const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
+const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
-    pickup_location: '',
-    dropoff_location: '',
-    pickup_time: '',
-    booking_type: 'individual',
-    vehicle_type: '',
-    vehicle_model: '',
-    estimated_cost: '',
-    notes: ''
+    email: '',
+    pickupLocation: '',
+    dropoffLocation: '',
+    pickupTime: '',
+    bookingType: 'individual',
+    vehicleType: '',
+    vehicleModel: '',
+    estimatedCost: '',
+    notes: '',
   });
+
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const vehicleOptions = {
     hatchback: ['Swift', 'Wagon R', 'Alto', 'i10', 'Santro'],
     sedan: ['Dzire', 'Etios', 'Amaze', 'Xcent', 'City'],
-    suv: ['Innova Crysta', 'Ertiga', 'Scorpio', 'XUV300', 'Brezza']
+    suv: ['Innova Crysta', 'Ertiga', 'Scorpio', 'XUV300', 'Brezza'],
   };
 
   useEffect(() => {
     if (booking) {
       setFormData({
-        pickup_location: booking.pickup_location || '',
-        dropoff_location: booking.dropoff_location || '',
-        pickup_time: booking.pickup_time ? booking.pickup_time.slice(0, 16) : '',
-        booking_type: booking.booking_type || 'individual',
-        vehicle_type: booking.vehicle_type || '',
-        vehicle_model: booking.vehicle_model || '',
-        estimated_cost: booking.estimated_cost?.toString() || '',
-        notes: booking.notes || ''
+        email: booking.email || '',
+        pickupLocation: booking.pickupLocation || '',
+        dropoffLocation: booking.dropoffLocation || '',
+        pickupTime: booking.pickupTime?.slice(0, 16) || '',
+        bookingType: booking.bookingType || 'individual',
+        vehicleType: booking.vehicleType || '',
+        vehicleModel: booking.vehicleModel || '',
+        estimatedCost: booking.estimatedCost?.toString() || '',
+        notes: booking.notes || '',
       });
     }
   }, [booking]);
 
+  useEffect(() => {
+const prefillUserDetails = async () => {
+  if (formData.email && formData.email.includes('@')) {
+    try {
+      const res = await fetchUserByEmail(formData.email);
+      const { exists, user, addresses } = res;
+
+      if (exists && addresses?.length) {
+        const pickup = addresses.find((addr) => addr.type === 'PICKUP');
+        const drop = addresses.find((addr) => addr.type === 'DROP');
+
+        setFormData((prev) => ({
+          ...prev,
+          pickupLocation: pickup?.address || '',
+          dropoffLocation: drop?.address || '',
+        }));
+      }
+    } catch (error) {
+      console.error('Email check failed:', error);
+    }
+  }
+};
+
+
+    prefillUserDetails();
+  }, [formData.email]);
+
   const handleVehicleTypeChange = (value: string) => {
-    setFormData({ 
-      ...formData, 
-      vehicle_type: value,
-      vehicle_model: '' // Reset model when type changes
+    setFormData({
+      ...formData,
+      vehicleType: value,
+      vehicleModel: '',
     });
   };
 
@@ -61,21 +105,28 @@ const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
     setLoading(true);
 
     try {
-      // Mock success for demo
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast({
-        title: "Success",
-        description: booking ? "Booking updated successfully (demo mode)" : "Booking created successfully (demo mode)",
-      });
+      const payload = {
+        ...formData,
+        estimatedCost: parseFloat(formData.estimatedCost || '0'),
+        pickupTime: new Date(formData.pickupTime),
+      };
 
+      if (booking?.id) {
+        await updateBooking(booking.id, payload);
+        toast({ title: 'Booking updated successfully' });
+      } else {
+        await createBooking(payload);
+        toast({ title: 'Booking created successfully' });
+      }
+
+      onSuccess();
       onClose();
     } catch (error) {
       console.error('Error saving booking:', error);
       toast({
-        title: "Error",
-        description: "Failed to save booking",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to save booking',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -83,7 +134,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
   };
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
+    <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{booking ? 'Edit Booking' : 'Create New Booking'}</DialogTitle>
@@ -91,42 +142,56 @@ const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
             {booking ? 'Update booking details' : 'Enter details for the new booking'}
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="pickup_location">Pickup Location</Label>
+            <Label htmlFor="email">User Email</Label>
             <Input
-              id="pickup_location"
-              value={formData.pickup_location}
-              onChange={(e) => setFormData({ ...formData, pickup_location: e.target.value })}
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="dropoff_location">Dropoff Location</Label>
+            <Label htmlFor="pickupLocation">Pickup Location</Label>
             <Input
-              id="dropoff_location"
-              value={formData.dropoff_location}
-              onChange={(e) => setFormData({ ...formData, dropoff_location: e.target.value })}
+              id="pickupLocation"
+              value={formData.pickupLocation}
+              onChange={(e) => setFormData({ ...formData, pickupLocation: e.target.value })}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="pickup_time">Pickup Time</Label>
+            <Label htmlFor="dropoffLocation">Dropoff Location</Label>
             <Input
-              id="pickup_time"
+              id="dropoffLocation"
+              value={formData.dropoffLocation}
+              onChange={(e) => setFormData({ ...formData, dropoffLocation: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pickupTime">Pickup Time</Label>
+            <Input
+              id="pickupTime"
               type="datetime-local"
-              value={formData.pickup_time}
-              onChange={(e) => setFormData({ ...formData, pickup_time: e.target.value })}
+              value={formData.pickupTime}
+              onChange={(e) => setFormData({ ...formData, pickupTime: e.target.value })}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="booking_type">Booking Type</Label>
-            <Select value={formData.booking_type} onValueChange={(value) => setFormData({ ...formData, booking_type: value })}>
+            <Label htmlFor="bookingType">Booking Type</Label>
+            <Select
+              value={formData.bookingType}
+              onValueChange={(value) => setFormData({ ...formData, bookingType: value })}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select booking type" />
               </SelectTrigger>
@@ -138,29 +203,34 @@ const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="vehicle_type">Vehicle Type</Label>
-            <Select value={formData.vehicle_type} onValueChange={handleVehicleTypeChange}>
+            <Label htmlFor="vehicleType">Vehicle Type</Label>
+            <Select value={formData.vehicleType} onValueChange={handleVehicleTypeChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select vehicle type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="hatchback">Hatchback</SelectItem>
-                <SelectItem value="sedan">Sedan</SelectItem>
-                <SelectItem value="suv">SUV</SelectItem>
+                {Object.keys(vehicleOptions).map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type.toUpperCase()}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
-          {formData.vehicle_type && (
+          {formData.vehicleType && (
             <div className="space-y-2">
-              <Label htmlFor="vehicle_model">Vehicle Model</Label>
-              <Select value={formData.vehicle_model} onValueChange={(value) => setFormData({ ...formData, vehicle_model: value })}>
+              <Label htmlFor="vehicleModel">Vehicle Model</Label>
+              <Select
+                value={formData.vehicleModel}
+                onValueChange={(value) => setFormData({ ...formData, vehicleModel: value })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select vehicle model" />
                 </SelectTrigger>
                 <SelectContent>
-                  {vehicleOptions[formData.vehicle_type as keyof typeof vehicleOptions]?.map((model) => (
-                    <SelectItem key={model} value={model.toLowerCase().replace(' ', '_')}>
+                  {vehicleOptions[formData.vehicleType as keyof typeof vehicleOptions].map((model) => (
+                    <SelectItem key={model} value={model}>
                       {model}
                     </SelectItem>
                   ))}
@@ -170,13 +240,13 @@ const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="estimated_cost">Estimated Cost</Label>
+            <Label htmlFor="estimatedCost">Estimated Cost</Label>
             <Input
-              id="estimated_cost"
+              id="estimatedCost"
               type="number"
               step="0.01"
-              value={formData.estimated_cost}
-              onChange={(e) => setFormData({ ...formData, estimated_cost: e.target.value })}
+              value={formData.estimatedCost}
+              onChange={(e) => setFormData({ ...formData, estimatedCost: e.target.value })}
             />
           </div>
 
@@ -184,9 +254,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ booking, onClose }) => {
             <Label htmlFor="notes">Notes</Label>
             <Textarea
               id="notes"
+              rows={3}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={3}
             />
           </div>
 

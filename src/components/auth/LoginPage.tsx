@@ -1,27 +1,42 @@
-
 import React, { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Car, Lock, Mail, Info } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext'; // ✅ fixed here
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const { signIn } = useAuth(); // ✅ use context-based login
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
-    
+
     setLoading(true);
     try {
-      await signIn(email, password);
-    } catch (error) {
-      console.error('Login error:', error);
+      await signIn(email, password); // ✅ calls AuthContext logic
+      toast({ title: 'Login successful!' });
+      navigate('/dashboard'); // Redirect on success
+    } catch (error: any) {
+      toast({
+        title: 'Login failed',
+        description: error.message,
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -52,11 +67,10 @@ const LoginPage = () => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="Enter your email"
+                    placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
-                    required
                   />
                 </div>
               </div>
@@ -67,52 +81,27 @@ const LoginPage = () => {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Enter your password"
+                    placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
-                    required
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" disabled={loading} className="w-full">
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
+              <div className="text-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => fillCredentials('admin@dotrip.net', '123123')}
+                >
+                  <Info className="h-4 w-4 mr-2" />
+                  Use demo credentials
+                </Button>
+              </div>
             </form>
-          </CardContent>
-        </Card>
-
-        {/* Demo credentials card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Info className="h-5 w-5 text-blue-600" />
-              Demo Credentials
-            </CardTitle>
-            <CardDescription>Click on any credential to auto-fill the form</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div 
-              onClick={() => fillCredentials('admin@tripflow.com', 'admin123')}
-              className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-            >
-              <div className="font-medium">Admin User</div>
-              <div className="text-sm text-gray-600">admin@tripflow.com / admin123</div>
-            </div>
-            <div 
-              onClick={() => fillCredentials('test@example.com', 'test123')}
-              className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-            >
-              <div className="font-medium">Test User</div>
-              <div className="text-sm text-gray-600">test@example.com / test123</div>
-            </div>
-            <div 
-              onClick={() => fillCredentials('user@demo.com', 'demo123')}
-              className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-            >
-              <div className="font-medium">Demo User</div>
-              <div className="text-sm text-gray-600">user@demo.com / demo123</div>
-            </div>
           </CardContent>
         </Card>
       </div>
