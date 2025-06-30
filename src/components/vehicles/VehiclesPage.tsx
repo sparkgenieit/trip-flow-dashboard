@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import VehicleForm from './VehicleForm';
+import { getVehicles } from '@/services/vehicles'; // ✅ import real API
 
 interface Vehicle {
   id: string;
@@ -36,59 +36,14 @@ const VehiclesPage = () => {
 
   const fetchVehicles = async () => {
     try {
-      // Mock data to avoid Supabase errors
-      const mockVehicles = [
-        {
-          id: '1',
-          vehicle_number: 'CAR-001',
-          type: 'Sedan',
-          comfort_level: 4,
-          rate_per_km: 12.5,
-          status: 'available',
-          last_serviced_date: '2024-01-15',
-          vendor_id: 'vendor1',
-          vendors: {
-            company_name: 'City Taxi Corp'
-          }
-        },
-        {
-          id: '2',
-          vehicle_number: 'CAR-002',
-          type: 'SUV',
-          comfort_level: 5,
-          rate_per_km: 18.0,
-          status: 'maintenance',
-          last_serviced_date: '2024-02-10',
-          vendor_id: 'vendor2',
-          vendors: {
-            company_name: 'Metro Transport'
-          }
-        },
-        {
-          id: '3',
-          vehicle_number: 'CAR-003',
-          type: 'Hatchback',
-          comfort_level: 3,
-          rate_per_km: 10.0,
-          status: 'available',
-          last_serviced_date: '2024-01-20',
-          vendor_id: 'vendor3',
-          vendors: {
-            company_name: 'Quick Rides'
-          }
-        }
-      ];
-      setVehicles(mockVehicles);
-      toast({
-        title: "Info",
-        description: "Using demo data (Supabase connection disabled)",
-      });
+      const data = await getVehicles(); // ✅ fetch from backend
+      setVehicles(data);
     } catch (error) {
       console.error('Error fetching vehicles:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch vehicles",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to fetch vehicles',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -106,7 +61,7 @@ const VehiclesPage = () => {
     fetchVehicles();
   };
 
-  const filteredVehicles = vehicles.filter(vehicle =>
+  const filteredVehicles = vehicles.filter((vehicle) =>
     vehicle.vehicle_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     vehicle.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -150,7 +105,7 @@ const VehiclesPage = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">{vehicle.vehicle_number}</CardTitle>
-                <Badge variant={vehicle.status === 'available' ? "default" : "secondary"}>
+                <Badge variant={vehicle.status === 'available' ? 'default' : 'secondary'}>
                   {vehicle.status}
                 </Badge>
               </div>
@@ -165,12 +120,14 @@ const VehiclesPage = () => {
                   <span className="font-medium">Comfort Level:</span> {vehicle.comfort_level}/5
                 </div>
                 <div>
-                  <span className="font-medium">Vendor:</span> {vehicle.vendors?.company_name || 'Independent'}
+                  <span className="font-medium">Vendor:</span>{' '}
+                  {vehicle.vendors?.company_name || 'Independent'}
                 </div>
                 <div>
-                  <span className="font-medium">Last Serviced:</span> {
-                    vehicle.last_serviced_date ? new Date(vehicle.last_serviced_date).toLocaleDateString() : 'Not recorded'
-                  }
+                  <span className="font-medium">Last Serviced:</span>{' '}
+                  {vehicle.last_serviced_date
+                    ? new Date(vehicle.last_serviced_date).toLocaleDateString()
+                    : 'Not recorded'}
                 </div>
               </div>
               <div className="mt-4 flex space-x-2">
@@ -187,10 +144,7 @@ const VehiclesPage = () => {
       </div>
 
       {showForm && (
-        <VehicleForm
-          vehicle={editingVehicle}
-          onClose={handleCloseForm}
-        />
+        <VehicleForm vehicle={editingVehicle} onClose={handleCloseForm} />
       )}
     </div>
   );
