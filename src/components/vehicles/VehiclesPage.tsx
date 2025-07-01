@@ -8,19 +8,23 @@ import { useToast } from '@/hooks/use-toast';
 import VehicleForm from './VehicleForm';
 import { getVehicles } from '@/services/vehicles'; // ✅ import real API
 
+
 interface Vehicle {
-  id: string;
-  vehicle_number: string;
-  type: string;
-  comfort_level: number;
-  rate_per_km: number;
+  id: number;
+  name: string;
+  model: string;
+  image: string;
+  capacity: number;
+  registrationNumber: string;
+  price: number;
+  originalPrice: number;
   status: string;
-  last_serviced_date: string;
-  vendor_id: string;
-  vendors: {
-    company_name: string;
-  };
+  comfortLevel: number;
+  lastServicedDate: string;
+  vehicleTypeId: number;
+  vendorId: number | null;
 }
+
 
 const VehiclesPage = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -62,11 +66,10 @@ const VehiclesPage = () => {
   };
 
 const filteredVehicles = vehicles.filter(vehicle => {
-  const vehicleNumber = vehicle.vehicle_number ?? '';
-  const vehicleType = vehicle.type ?? '';
+  const vehicleNumber = vehicle.registrationNumber ?? '';
+  
   return (
-    vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vehicleType.toLowerCase().includes(searchTerm.toLowerCase())
+    vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) 
   );
 });
    console.log(filteredVehicles);
@@ -127,10 +130,7 @@ const filteredVehicles = vehicles.filter(vehicle => {
           <div>
             <span className="font-medium">Capacity:</span> {vehicle.capacity} seater
           </div>
-          <div>
-            <span className="font-medium">Vendor:</span>{' '}
-            {vehicle.vendor?.company_name || 'Independent'}
-          </div>
+         
           <div>
             <span className="font-medium">Last Serviced:</span>{' '}
             {vehicle.lastServicedDate

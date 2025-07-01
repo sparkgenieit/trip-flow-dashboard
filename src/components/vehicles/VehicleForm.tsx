@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createVehicle } from '@/services/vehicles'; // Adjust the path as needed
+import { createVehicle } from '@/services/vehicles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,18 +21,24 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 interface Vehicle {
-  vehicle_number: string;
-  type: string;
-  comfort_level: number;
-  rate_per_km: number;
+  id: number;
+  name: string;
+  model: string;
+  image: string;
+  capacity: number;
+  registrationNumber: string;
+  price: number;
+  originalPrice: number;
   status: string;
-  vendor_id: string;
-  last_serviced_date: string;
+  comfortLevel: number;
+  lastServicedDate: string;
+  vehicleTypeId: number;
+  vendorId: number | null;
 }
 
 interface Vendor {
   id: string;
-  company_name: string;
+  companyName: string;
 }
 
 interface VehicleFormProps {
@@ -42,13 +48,13 @@ interface VehicleFormProps {
 
 const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   const [formData, setFormData] = useState({
-    vehicle_number: '',
+    vehicleNumber: '',
     type: '',
-    comfort_level: '',
-    rate_per_km: '',
+    comfortLevel: '',
+    ratePerKm: '',
     status: 'available',
-    vendor_id: '',
-    last_serviced_date: '',
+    vendorId: '',
+    lastServicedDate: '',
   });
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -57,25 +63,27 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
 
   useEffect(() => {
     fetchVendors();
+
     if (vehicle) {
       setFormData({
-        vehicle_number: vehicle.vehicle_number || '',
-        type: vehicle.type || '',
-        comfort_level: vehicle.comfort_level?.toString() || '',
-        rate_per_km: vehicle.rate_per_km?.toString() || '',
+        vehicleNumber: vehicle.registrationNumber || '',
+        type: vehicle.model || '',
+        comfortLevel: vehicle.comfortLevel?.toString() || '',
+        ratePerKm: vehicle.price?.toString() || '',
         status: vehicle.status || 'available',
-        vendor_id: vehicle.vendor_id || '',
-        last_serviced_date: vehicle.last_serviced_date || '',
+        vendorId: vehicle.vendorId?.toString() || '',
+        lastServicedDate: vehicle.lastServicedDate?.split('T')[0] || '',
       });
     }
   }, [vehicle]);
 
   const fetchVendors = async () => {
     try {
+      // Replace this with real API call if needed
       setVendors([
-        { id: 'vendor1', company_name: 'City Taxi Corp' },
-        { id: 'vendor2', company_name: 'Metro Transport' },
-        { id: 'vendor3', company_name: 'Quick Rides' },
+        { id: '1', companyName: 'City Taxi Corp' },
+        { id: '2', companyName: 'Metro Transport' },
+        { id: '3', companyName: 'Quick Rides' },
       ]);
     } catch (error) {
       console.error('Error fetching vendors:', error);
@@ -83,45 +91,47 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
+    e.preventDefault();
+    setLoading(true);
 
-  try {
-    const payload = {
-      name: formData.vehicle_number,
-      model: formData.type,
-      image: '', // add image upload logic later
-      capacity: 4, // if you collect this from user, replace it
-      registrationNumber: formData.vehicle_number,
-      price: parseFloat(formData.rate_per_km),
-      originalPrice: parseFloat(formData.rate_per_km),
-      comfortLevel: parseInt(formData.comfort_level),
-      status: formData.status,
-      lastServicedDate: formData.last_serviced_date || undefined,
-      vehicleTypeId: 1, // hardcoded or dynamically mapped from `formData.type`
-      vendorId: formData.vendor_id !== 'independent' ? parseInt(formData.vendor_id) : undefined,
-    };
+    try {
+      const payload = {
+        name: formData.vehicleNumber,
+        model: formData.type,
+        image: '',
+        capacity: 4,
+        registrationNumber: formData.vehicleNumber,
+        price: parseFloat(formData.ratePerKm),
+        originalPrice: parseFloat(formData.ratePerKm),
+        comfortLevel: parseInt(formData.comfortLevel),
+        status: formData.status,
+        lastServicedDate: formData.lastServicedDate || undefined,
+        vehicleTypeId: 1,
+        vendorId:
+          formData.vendorId && formData.vendorId !== 'independent'
+            ? parseInt(formData.vendorId)
+            : null,
+      };
 
-    await createVehicle(payload);
-    
-    toast({
-      title: 'Success',
-      description: vehicle ? 'Vehicle updated successfully' : 'Vehicle created successfully',
-    });
-    
-    onClose();
-  } catch (error) {
-    console.error('Error saving vehicle:', error);
-    toast({
-      title: 'Error',
-      description: 'Failed to save vehicle',
-      variant: 'destructive',
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+      await createVehicle(payload);
 
+      toast({
+        title: 'Success',
+        description: vehicle ? 'Vehicle updated successfully' : 'Vehicle created successfully',
+      });
+
+      onClose();
+    } catch (error) {
+      console.error('Error saving vehicle:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save vehicle',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -135,12 +145,12 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="vehicle_number">Vehicle Number</Label>
+            <Label htmlFor="vehicleNumber">Vehicle Number</Label>
             <Input
-              id="vehicle_number"
-              value={formData.vehicle_number}
+              id="vehicleNumber"
+              value={formData.vehicleNumber}
               onChange={(e) =>
-                setFormData({ ...formData, vehicle_number: e.target.value })
+                setFormData({ ...formData, vehicleNumber: e.target.value })
               }
               required
             />
@@ -165,29 +175,29 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="comfort_level">Comfort Level (1–5)</Label>
+            <Label htmlFor="comfortLevel">Comfort Level (1–5)</Label>
             <Input
-              id="comfort_level"
+              id="comfortLevel"
               type="number"
               min="1"
               max="5"
-              value={formData.comfort_level}
+              value={formData.comfortLevel}
               onChange={(e) =>
-                setFormData({ ...formData, comfort_level: e.target.value })
+                setFormData({ ...formData, comfortLevel: e.target.value })
               }
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="rate_per_km">Rate per KM</Label>
+            <Label htmlFor="ratePerKm">Rate per KM</Label>
             <Input
-              id="rate_per_km"
+              id="ratePerKm"
               type="number"
               step="0.01"
-              value={formData.rate_per_km}
+              value={formData.ratePerKm}
               onChange={(e) =>
-                setFormData({ ...formData, rate_per_km: e.target.value })
+                setFormData({ ...formData, ratePerKm: e.target.value })
               }
               required
             />
@@ -211,11 +221,11 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="vendor_id">Vendor</Label>
+            <Label htmlFor="vendorId">Vendor</Label>
             <Select
-              value={formData.vendor_id}
+              value={formData.vendorId}
               onValueChange={(value) =>
-                setFormData({ ...formData, vendor_id: value })
+                setFormData({ ...formData, vendorId: value })
               }
             >
               <SelectTrigger>
@@ -225,7 +235,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
                 <SelectItem value="independent">Independent</SelectItem>
                 {vendors.map((vendor) => (
                   <SelectItem key={vendor.id} value={vendor.id}>
-                    {vendor.company_name}
+                    {vendor.companyName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -233,13 +243,13 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="last_serviced_date">Last Serviced Date</Label>
+            <Label htmlFor="lastServicedDate">Last Serviced Date</Label>
             <Input
-              id="last_serviced_date"
+              id="lastServicedDate"
               type="date"
-              value={formData.last_serviced_date}
+              value={formData.lastServicedDate}
               onChange={(e) =>
-                setFormData({ ...formData, last_serviced_date: e.target.value })
+                setFormData({ ...formData, lastServicedDate: e.target.value })
               }
             />
           </div>
