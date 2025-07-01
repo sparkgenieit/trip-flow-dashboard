@@ -14,13 +14,24 @@ interface VehicleCreateInput {
   status?: string;
   lastServicedDate?: string;
   vehicleTypeId: number;
-  vendorId?: number;
+  vendorId?: number | null;
 }
 
 // ✅ Create vehicle with token-based authorization
 export const createVehicle = async (data: VehicleCreateInput) => {
   const token = localStorage.getItem('authToken');
   return await axios.post(API_BASE, data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    withCredentials: true,
+  });
+};
+
+// ✅ Update vehicle by ID with token-based authorization
+export const updateVehicle = async (id: number, data: VehicleCreateInput) => {
+  const token = localStorage.getItem('authToken');
+  return await axios.patch(`${API_BASE}/${id}`, data, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -38,4 +49,15 @@ export const getVehicles = async () => {
     withCredentials: true,
   });
   return res.data;
+};
+
+// ✅ Delete vehicle by ID with token-based authorization
+export const deleteVehicle = async (id: number) => {
+  const token = localStorage.getItem('authToken');
+  return await axios.delete(`${API_BASE}/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    withCredentials: true,
+  });
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createVehicle } from '@/services/vehicles';
+import { createVehicle, updateVehicle } from '@/services/vehicles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -113,7 +113,12 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
             : null,
       };
 
-      await createVehicle(payload);
+      if (vehicle?.id) {
+  await updateVehicle(vehicle.id, payload); // ✅ Edit case
+} else {
+  await createVehicle(payload);             // ✅ Create case
+}
+
 
       toast({
         title: 'Success',

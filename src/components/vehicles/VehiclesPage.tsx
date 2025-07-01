@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import VehicleForm from './VehicleForm';
-import { getVehicles } from '@/services/vehicles'; // ✅ import real API
-
+import VehicleDetailsModal from './VehicleDetailsModal'; // ✅ added for modal view
+import { getVehicles, deleteVehicle } from '@/services/vehicles'; // ✅ updated to include delete
 
 interface Vehicle {
   id: number;
@@ -25,13 +31,13 @@ interface Vehicle {
   vendorId: number | null;
 }
 
-
 const VehiclesPage = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [viewingVehicle, setViewingVehicle] = useState<Vehicle | null>(null); // ✅ state for view modal
   const { toast } = useToast();
 
   useEffect(() => {
@@ -40,7 +46,7 @@ const VehiclesPage = () => {
 
   const fetchVehicles = async () => {
     try {
-      const data = await getVehicles(); // ✅ fetch from backend
+      const data = await getVehicles();
       setVehicles(data);
     } catch (error) {
       console.error('Error fetching vehicles:', error);
@@ -65,14 +71,27 @@ const VehiclesPage = () => {
     fetchVehicles();
   };
 
-const filteredVehicles = vehicles.filter(vehicle => {
-  const vehicleNumber = vehicle.registrationNumber ?? '';
-  
-  return (
-    vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) 
+  const handleViewDetails = (vehicle: Vehicle) => {
+    setViewingVehicle(vehicle); // ✅ open view modal
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteVehicle(id); // ✅ API call
+      toast({ title: 'Deleted successfully' });
+      fetchVehicles(); // ✅ refresh
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Delete failed',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const filteredVehicles = vehicles.filter((vehicle) =>
+    vehicle.registrationNumber?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-});
-   console.log(filteredVehicles);
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading vehicles...</div>;
@@ -107,53 +126,59 @@ const filteredVehicles = vehicles.filter(vehicle => {
         </Button>
       </div>
 
-     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-  {filteredVehicles.map((vehicle) => (
-    <Card key={vehicle.id} className="cursor-pointer hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{vehicle.registrationNumber}</CardTitle>
-          <Badge variant={vehicle.status === 'available' ? 'default' : 'secondary'}>
-            {vehicle.status}
-          </Badge>
-        </div>
-        <CardDescription>{vehicle.model}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2 text-sm">
-          <div>
-            <span className="font-medium">Rate per KM:</span> ₹{vehicle.price}
-          </div>
-          <div>
-            <span className="font-medium">Comfort Level:</span> {vehicle.comfortLevel}/5
-          </div>
-          <div>
-            <span className="font-medium">Capacity:</span> {vehicle.capacity} seater
-          </div>
-         
-          <div>
-            <span className="font-medium">Last Serviced:</span>{' '}
-            {vehicle.lastServicedDate
-              ? new Date(vehicle.lastServicedDate).toLocaleDateString()
-              : 'Not recorded'}
-          </div>
-        </div>
-        <div className="mt-4 flex space-x-2">
-          <Button size="sm" variant="outline" onClick={() => handleEdit(vehicle)}>
-            Edit
-          </Button>
-          <Button size="sm" variant="outline">
-            View Details
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  ))}
-</div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredVehicles.map((vehicle) => (
+          <Card key={vehicle.id} className="cursor-pointer hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{vehicle.registrationNumber}</CardTitle>
+                <Badge variant={vehicle.status === 'available' ? 'default' : 'secondary'}>
+                  {vehicle.status}
+                </Badge>
+              </div>
+              <CardDescription>{vehicle.model}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-medium">Rate per KM:</span> ₹{vehicle.price}
+                </div>
+                <div>
+                  <span className="font-medium">Comfort Level:</span> {vehicle.comfortLevel}/5
+                </div>
+                <div>
+                  <span className="font-medium">Capacity:</span> {vehicle.capacity} seater
+                </div>
+                <div>
+                  <span className="font-medium">Last Serviced:</span>{' '}
+                  {vehicle.lastServicedDate
+                    ? new Date(vehicle.lastServicedDate).toLocaleDateString()
+                    : 'Not recorded'}
+                </div>
+              </div>
 
+              <div className="mt-4 flex space-x-2">
+                <Button size="sm" variant="outline" onClick={() => handleEdit(vehicle)}>
+                  Edit
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleViewDetails(vehicle)}>
+                  View Details
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => handleDelete(vehicle.id)}>
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
       {showForm && (
         <VehicleForm vehicle={editingVehicle} onClose={handleCloseForm} />
+      )}
+
+      {viewingVehicle && (
+        <VehicleDetailsModal vehicle={viewingVehicle} onClose={() => setViewingVehicle(null)} />
       )}
     </div>
   );
