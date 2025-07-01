@@ -3,14 +3,17 @@ import axios from 'axios';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 export interface BookingPayload {
+  email: string;
   pickupLocation: string;
   dropoffLocation: string;
-  pickupTime: Date;
+  pickupDateTime: string; // ISO string format for date
   bookingType: string;
-  vehicleType: string;
-  vehicleModel: string;
+  vehicleTypeId: number;
   estimatedCost: number;
   notes: string;
+  fromCityId: number;
+  toCityId: number;
+  fare: number;
 }
 
 // 🔐 Automatically adds token to every request
@@ -48,7 +51,6 @@ export const fetchUserByEmail = async (email: string) => {
     `${BASE_URL}/admin/users/check-email`,
     { email },
     authHeaders(),
-    
   );
   return res.data;
 };

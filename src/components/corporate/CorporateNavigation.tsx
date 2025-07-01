@@ -11,6 +11,7 @@ const tabs = [
   { name: 'Request Booking', href: '/dashboard/corporate/request-booking', icon: Calendar },
   { name: 'Booking Approval', href: '/dashboard/corporate/booking-approval', icon: CheckSquare },
   { name: 'Calendar View', href: '/dashboard/corporate/calendar', icon: CalendarDays },
+{ name: 'Agreements', href: '/dashboard/corporate/agreements', icon: CheckSquare },
 ];
 
 const CorporateNavigation = () => {

@@ -8,6 +8,7 @@ import VehiclePreferences from './VehiclePreferences';
 import RequestBooking from './RequestBooking';
 import BookingApproval from './BookingApproval';
 import CalendarView from './CalendarView';
+import AgreementForm from './AgreementForm';
 
 const CorporateDashboard = () => {
   return (
@@ -23,6 +24,7 @@ const CorporateDashboard = () => {
         <Route path="request-booking" element={<RequestBooking />} />
         <Route path="booking-approval" element={<BookingApproval />} />
         <Route path="calendar" element={<CalendarView />} />
+        <Route path="agreements" element={<AgreementForm />} />
       </Routes>
     </div>
   );

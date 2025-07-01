@@ -61,10 +61,15 @@ const VehiclesPage = () => {
     fetchVehicles();
   };
 
-  const filteredVehicles = vehicles.filter((vehicle) =>
-    vehicle.vehicle_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vehicle.type.toLowerCase().includes(searchTerm.toLowerCase())
+const filteredVehicles = vehicles.filter(vehicle => {
+  const vehicleNumber = vehicle.vehicle_number ?? '';
+  const vehicleType = vehicle.type ?? '';
+  return (
+    vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vehicleType.toLowerCase().includes(searchTerm.toLowerCase())
   );
+});
+   console.log(filteredVehicles);
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading vehicles...</div>;
@@ -99,49 +104,53 @@ const VehiclesPage = () => {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredVehicles.map((vehicle) => (
-          <Card key={vehicle.id} className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{vehicle.vehicle_number}</CardTitle>
-                <Badge variant={vehicle.status === 'available' ? 'default' : 'secondary'}>
-                  {vehicle.status}
-                </Badge>
-              </div>
-              <CardDescription>{vehicle.type}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="font-medium">Rate per KM:</span> ₹{vehicle.rate_per_km}
-                </div>
-                <div>
-                  <span className="font-medium">Comfort Level:</span> {vehicle.comfort_level}/5
-                </div>
-                <div>
-                  <span className="font-medium">Vendor:</span>{' '}
-                  {vehicle.vendors?.company_name || 'Independent'}
-                </div>
-                <div>
-                  <span className="font-medium">Last Serviced:</span>{' '}
-                  {vehicle.last_serviced_date
-                    ? new Date(vehicle.last_serviced_date).toLocaleDateString()
-                    : 'Not recorded'}
-                </div>
-              </div>
-              <div className="mt-4 flex space-x-2">
-                <Button size="sm" variant="outline" onClick={() => handleEdit(vehicle)}>
-                  Edit
-                </Button>
-                <Button size="sm" variant="outline">
-                  View Details
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+  {filteredVehicles.map((vehicle) => (
+    <Card key={vehicle.id} className="cursor-pointer hover:shadow-md transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">{vehicle.registrationNumber}</CardTitle>
+          <Badge variant={vehicle.status === 'available' ? 'default' : 'secondary'}>
+            {vehicle.status}
+          </Badge>
+        </div>
+        <CardDescription>{vehicle.model}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2 text-sm">
+          <div>
+            <span className="font-medium">Rate per KM:</span> ₹{vehicle.price}
+          </div>
+          <div>
+            <span className="font-medium">Comfort Level:</span> {vehicle.comfortLevel}/5
+          </div>
+          <div>
+            <span className="font-medium">Capacity:</span> {vehicle.capacity} seater
+          </div>
+          <div>
+            <span className="font-medium">Vendor:</span>{' '}
+            {vehicle.vendor?.company_name || 'Independent'}
+          </div>
+          <div>
+            <span className="font-medium">Last Serviced:</span>{' '}
+            {vehicle.lastServicedDate
+              ? new Date(vehicle.lastServicedDate).toLocaleDateString()
+              : 'Not recorded'}
+          </div>
+        </div>
+        <div className="mt-4 flex space-x-2">
+          <Button size="sm" variant="outline" onClick={() => handleEdit(vehicle)}>
+            Edit
+          </Button>
+          <Button size="sm" variant="outline">
+            View Details
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  ))}
+</div>
+
 
       {showForm && (
         <VehicleForm vehicle={editingVehicle} onClose={handleCloseForm} />
