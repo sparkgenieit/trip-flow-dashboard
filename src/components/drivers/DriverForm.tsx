@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { createDriver, updateDriver } from '@/services/drivers';
+import { fetchAllVendors } from '@/services/vendor';
+import { getVehicles } from '@/services/vehicles';
 
 interface Driver {
   id: number;
@@ -68,17 +70,11 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
 
 const fetchVendorsAndVehicles = async () => {
   try {
-    // Temporary mock fallback — replace with real API calls if needed
-    setVendors([
-      { id: '1', company_name: 'City Taxi Corp' },
-      { id: '2', company_name: 'Metro Transport' },
-      { id: '3', company_name: 'Quick Rides' },
-    ]);
-    setVehicles([
-      { id: '1', vehicle_number: 'CAR-001', type: 'Sedan' },
-      { id: '2', vehicle_number: 'CAR-002', type: 'SUV' },
-      { id: '3', vehicle_number: 'CAR-003', type: 'Hatchback' },
-    ]);
+       const vendorsRes = await fetchAllVendors(); // ✅ API call
+    setVendors(vendorsRes);
+    
+    const vehiclesRes = await getVehicles();
+    setVehicles(vehiclesRes);
   } catch (error) {
     console.error('Error fetching vendors/vehicles:', error);
   }
@@ -97,9 +93,7 @@ const fetchVendorsAndVehicles = async () => {
   isPartTime: formData.is_part_time,
   isAvailable: formData.is_available,
   vendorId: formData.vendor_id ? Number(formData.vendor_id) : undefined,
-  vehicleId: formData.assigned_vehicle_id
-    ? Number(formData.assigned_vehicle_id)
-    : undefined,
+  vehicleId: formData.assigned_vehicle_id ? Number(formData.assigned_vehicle_id) : undefined,
   userId: formData.user_id ? Number(formData.user_id) : undefined,
 };
 
@@ -194,12 +188,14 @@ const fetchVendorsAndVehicles = async () => {
                 <SelectValue placeholder="Select vendor (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="independent">Independent</SelectItem>
-                {vendors.map((vendor: any) => (
-                  <SelectItem key={vendor.id} value={vendor.id}>
-                    {vendor.company_name}
-                  </SelectItem>
-                ))}
+                <SelectContent>
+                 {vendors.map((vendor: any) => (
+                <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                 {vendor.companyReg || vendor.company_name}
+                </SelectItem>
+                 ))}
+                 </SelectContent>
+
               </SelectContent>
             </Select>
           </div>
@@ -211,13 +207,14 @@ const fetchVendorsAndVehicles = async () => {
                 <SelectValue placeholder="Select vehicle (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No vehicle assigned</SelectItem>
-                {vehicles.map((vehicle: any) => (
-                  <SelectItem key={vehicle.id} value={vehicle.id}>
-                    {vehicle.vehicle_number} - {vehicle.type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+  <SelectItem value="none">No vehicle assigned</SelectItem> {/* Use a valid string */}
+  {vehicles.map((vehicle: { id: number; registrationNumber: string; model: string }) => (
+  <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+    {vehicle.registrationNumber} - {vehicle.model}
+  </SelectItem>
+))}
+</SelectContent>
+
             </Select>
           </div>
 
