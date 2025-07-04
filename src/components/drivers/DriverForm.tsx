@@ -1,4 +1,4 @@
-
+import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,9 +7,27 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { createDriver, updateDriver } from '@/services/drivers';
+import { fetchAllVendors } from '@/services/vendor';
+import { getVehicles } from '@/services/vehicles';
+
+interface Driver {
+  id: number;
+  license_number: string;
+  license_expiry: string;
+  is_part_time: boolean;
+  is_available: boolean;
+  vendor_id: number | null;
+  assigned_vehicle_id?: number;
+  user_id?: number;
+  profiles?: {
+    full_name: string;
+    phone: string;
+  };
+}
 
 interface DriverFormProps {
-  driver?: any;
+  driver?: Driver;
   onClose: () => void;
 }
 
@@ -23,7 +41,8 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
     is_part_time: false,
     is_available: true,
     vendor_id: '',
-    assigned_vehicle_id: ''
+    assigned_vehicle_id: '',
+    user_id: ''
   });
   const [vendors, setVendors] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -31,64 +50,73 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchVendorsAndVehicles();
-    if (driver) {
-      setFormData({
-        full_name: driver.profiles?.full_name || '',
-        phone: driver.profiles?.phone || '',
-        email: '',
-        license_number: driver.license_number || '',
-        license_expiry: driver.license_expiry || '',
-        is_part_time: driver.is_part_time || false,
-        is_available: driver.is_available || true,
-        vendor_id: driver.vendor_id || '',
-        assigned_vehicle_id: driver.assigned_vehicle_id || ''
-      });
-    }
-  }, [driver]);
+  fetchVendorsAndVehicles();
 
-  const fetchVendorsAndVehicles = async () => {
-    try {
-      // Mock data to avoid Supabase errors
-      setVendors([
-        { id: 'vendor1', company_name: 'City Taxi Corp' },
-        { id: 'vendor2', company_name: 'Metro Transport' },
-        { id: 'vendor3', company_name: 'Quick Rides' }
-      ]);
-      setVehicles([
-        { id: 'vehicle1', vehicle_number: 'CAR-001', type: 'Sedan' },
-        { id: 'vehicle2', vehicle_number: 'CAR-002', type: 'SUV' },
-        { id: 'vehicle3', vehicle_number: 'CAR-003', type: 'Hatchback' }
-      ]);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    }
-  };
+  if (driver) {
+    setFormData({
+      full_name: driver.profiles?.full_name || '',
+      phone: driver.profiles?.phone || '',
+      email: '',
+      license_number: driver.license_number || '',
+      license_expiry: driver.license_expiry?.split('T')[0] || '',
+      is_part_time: driver.is_part_time || false,
+      is_available: driver.is_available || true,
+      vendor_id: driver.vendor_id?.toString() || '',
+      assigned_vehicle_id: driver.assigned_vehicle_id?.toString() || '',
+      user_id: driver.user_id?.toString() || ''
+    });
+  }
+}, [driver]);
+
+const fetchVendorsAndVehicles = async () => {
+  try {
+       const vendorsRes = await fetchAllVendors(); // ✅ API call
+    setVendors(vendorsRes);
+    
+    const vehiclesRes = await getVehicles();
+    setVehicles(vehiclesRes);
+  } catch (error) {
+    console.error('Error fetching vendors/vehicles:', error);
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-      // Mock success for demo
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast({
-        title: "Success",
-        description: driver ? "Driver updated successfully (demo mode)" : "Driver created successfully (demo mode)",
-      });
-      onClose();
-    } catch (error) {
-      console.error('Error saving driver:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save driver",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  const payload = {
+  fullName: formData.full_name,
+  phone: formData.phone,
+  email: formData.email,
+  licenseNumber: formData.license_number,
+  licenseExpiry: formData.license_expiry,
+  isPartTime: formData.is_part_time,
+  isAvailable: formData.is_available,
+  vendorId: formData.vendor_id ? Number(formData.vendor_id) : undefined,
+  vehicleId: formData.assigned_vehicle_id ? Number(formData.assigned_vehicle_id) : undefined,
+  userId: formData.user_id ? Number(formData.user_id) : undefined,
+};
+
+  try {
+    if (driver && driver.id) {
+      await updateDriver(driver.id, payload);
+      toast({ title: 'Success', description: 'Driver updated successfully' });
+    } else {
+      await createDriver(payload);
+      toast({ title: 'Success', description: 'Driver created successfully' });
     }
-  };
-
+    onClose();
+  } catch (error) {
+    console.error('Save error:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to save driver',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
@@ -160,12 +188,14 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
                 <SelectValue placeholder="Select vendor (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="independent">Independent</SelectItem>
-                {vendors.map((vendor: any) => (
-                  <SelectItem key={vendor.id} value={vendor.id}>
-                    {vendor.company_name}
-                  </SelectItem>
-                ))}
+                <SelectContent>
+                 {vendors.map((vendor: any) => (
+                <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                 {vendor.companyReg || vendor.company_name}
+                </SelectItem>
+                 ))}
+                 </SelectContent>
+
               </SelectContent>
             </Select>
           </div>
@@ -177,13 +207,14 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
                 <SelectValue placeholder="Select vehicle (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No vehicle assigned</SelectItem>
-                {vehicles.map((vehicle: any) => (
-                  <SelectItem key={vehicle.id} value={vehicle.id}>
-                    {vehicle.vehicle_number} - {vehicle.type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+  <SelectItem value="none">No vehicle assigned</SelectItem> {/* Use a valid string */}
+  {vehicles.map((vehicle: { id: number; registrationNumber: string; model: string }) => (
+  <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+    {vehicle.registrationNumber} - {vehicle.model}
+  </SelectItem>
+))}
+</SelectContent>
+
             </Select>
           </div>
 

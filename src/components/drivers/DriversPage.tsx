@@ -1,4 +1,4 @@
-
+import { getDrivers } from '@/services/drivers';
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,61 +42,20 @@ const DriversPage = () => {
   }, []);
 
   const fetchDrivers = async () => {
-    try {
-      // Mock data for demo
-      const mockDrivers = [
-        {
-          id: '1',
-          license_number: 'DL12345',
-          license_expiry: '2025-12-31',
-          is_part_time: false,
-          is_available: true,
-          vendor_id: 'vendor1',
-          assigned_vehicle_id: 'vehicle1',
-          profiles: {
-            full_name: 'John Smith',
-            phone: '+1234567890'
-          },
-          vendors: {
-            company_name: 'City Taxi Corp'
-          },
-          vehicles: {
-            vehicle_number: 'CAR-001',
-            type: 'Sedan'
-          }
-        },
-        {
-          id: '2',
-          license_number: 'DL67890',
-          license_expiry: '2024-08-15',
-          is_part_time: true,
-          is_available: false,
-          vendor_id: 'vendor2',
-          assigned_vehicle_id: 'vehicle2',
-          profiles: {
-            full_name: 'Sarah Johnson',
-            phone: '+1987654321'
-          },
-          vendors: {
-            company_name: 'Metro Transport'
-          },
-          vehicles: {
-            vehicle_number: 'CAR-002',
-            type: 'SUV'
-          }
-        }
-      ];
-      setDrivers(mockDrivers);
-    } catch (error) {
-      console.error('Error fetching drivers:', error);
-      toast({
-        title: "Info",
-        description: "Using demo data (Supabase connection disabled)",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const response = await getDrivers(); // ✅ real API call
+    setDrivers(response || []);
+  } catch (error) {
+    console.error('Error fetching drivers:', error);
+    toast({
+      title: "Error",
+      description: "Failed to load drivers from server.",
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleEdit = (driver: Driver) => {
     setEditingDriver(driver);
@@ -109,10 +68,14 @@ const DriversPage = () => {
     fetchDrivers();
   };
 
-  const filteredDrivers = drivers.filter(driver =>
-    driver.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.license_number.toLowerCase().includes(searchTerm.toLowerCase())
+const filteredDrivers = drivers.filter((driver) => {
+  const name = driver?.profiles?.full_name || '';
+  const license = driver?.license_number || '';
+  return (
+    name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    license.toLowerCase().includes(searchTerm.toLowerCase())
   );
+});
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading drivers...</div>;
