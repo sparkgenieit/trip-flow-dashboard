@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,21 +17,24 @@ const VendorForm: React.FC<VendorFormProps> = ({ vendor, onClose, onSuccess }) =
 const [formData, setFormData] = useState({
   name: '',
   companyReg: '',
-  vendorId: ''
-  });
-
+  email: '',
+  phone: '',
+});
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+// 🔁 REPLACE useEffect
 useEffect(() => {
   if (vendor) {
     setFormData({
       name: vendor.name || '',
       companyReg: vendor.companyReg || '',
-      vendorId: vendor.vendorId?.toString() || ''
+      email: vendor.vendor?.email || '',
+      phone: vendor.vendor?.phone || '',
     });
   }
 }, [vendor]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,9 +44,9 @@ useEffect(() => {
   const payload = {
   name: formData.name,
   companyReg: formData.companyReg,
-  vendorId: Number(formData.vendorId)
-  };
-
+  email: formData.email,
+  phone: formData.phone,
+};
 
   if (vendor?.id) {
     await updateVendor(vendor.id, payload);
@@ -100,15 +102,26 @@ catch (error: any) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="vendorId">Vendor User ID</Label>
-            <Input
-              id="vendorId"
-              type="number"
-              value={formData.vendorId}
-              onChange={(e) => setFormData({ ...formData, vendorId: e.target.value.replace(/\D/, '') })}
-              required
-            />
-          </div>
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone</Label>
+          <Input
+            id="phone"
+            type="tel"
+            value={formData.phone}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            required
+          />
+        </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>

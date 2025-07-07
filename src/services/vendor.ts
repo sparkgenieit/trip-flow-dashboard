@@ -27,7 +27,7 @@ export const createVendor = async (data: any) => {
 
 // ✅ Update vendor by ID
 export const updateVendor = async (id: string, data: any) => {
-  const res = await axios.put(`${BASE_URL}/admin/vendor/${id}`, data, authHeaders());
+  const res = await axios.patch(`${BASE_URL}/admin/vendor/${id}`, data, authHeaders());
   return res.data;
 };
 
