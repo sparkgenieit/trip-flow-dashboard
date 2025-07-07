@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,19 +8,18 @@ import { Plus, Search, Filter, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import VendorForm from './VendorForm';
 import CorporateBookingRequests from './CorporateBookingRequests';
+import { fetchAllVendors, deleteVendor } from '@/services/vendor';
 
 interface Vendor {
-  id: string;
-  company_name: string;
-  contact_person: string;
-  phone: string;
-  email: string;
-  address: string;
-  commission_rate: number;
+  id: number;
+  name: string;
+  companyReg: string;
+  vendorId: number;
 }
 
 const VendorsPage = () => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [tab, setTab] = useState('vendors');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -33,53 +31,20 @@ const VendorsPage = () => {
   }, []);
 
   const fetchVendors = async () => {
-    try {
-      // Mock data to avoid Supabase errors
-      const mockVendors = [
-        {
-          id: '1',
-          company_name: 'City Taxi Corp',
-          contact_person: 'John Manager',
-          phone: '+1234567890',
-          email: 'contact@citytaxi.com',
-          address: '123 Main St, City, State',
-          commission_rate: 15.00
-        },
-        {
-          id: '2',
-          company_name: 'Metro Transport',
-          contact_person: 'Sarah Wilson',
-          phone: '+1987654321',
-          email: 'info@metrotransport.com',
-          address: '456 Oak Ave, Metro City',
-          commission_rate: 12.50
-        },
-        {
-          id: '3',
-          company_name: 'Quick Rides',
-          contact_person: 'Mike Rodriguez',
-          phone: '+1555666777',
-          email: 'hello@quickrides.com',
-          address: '789 Pine Rd, Downtown',
-          commission_rate: 18.00
-        }
-      ];
-      setVendors(mockVendors);
-      toast({
-        title: "Info",
-        description: "Using demo data (Supabase connection disabled)",
-      });
-    } catch (error) {
-      console.error('Error fetching vendors:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch vendors",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const res = await fetchAllVendors();
+    setVendors(res.data);
+  } catch (error) {
+    console.error('Error fetching vendors:', error);
+    toast({
+      title: "Error",
+      description: "Failed to fetch vendors",
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleEdit = (vendor: Vendor) => {
     setEditingVendor(vendor);
@@ -89,13 +54,31 @@ const VendorsPage = () => {
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingVendor(null);
+    setTab('vendors');
     fetchVendors();
   };
 
-  const filteredVendors = vendors.filter(vendor =>
-    vendor.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vendor.contact_person?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleDelete = async (id: string) => {
+  if (!confirm('Are you sure you want to delete this vendor?')) return;
+
+  try {
+    await deleteVendor(id);
+    toast({ title: "Vendor deleted successfully" });
+    fetchVendors();
+  } catch (error) {
+    console.error('Delete failed:', error);
+    toast({
+      title: "Error",
+      description: "Failed to delete vendor",
+      variant: "destructive",
+    });
+  }
+};
+
+  const filteredVendors = (vendors || []).filter(vendor =>
+  vendor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  vendor.companyReg?.toLowerCase().includes(searchTerm.toLowerCase())
+);
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading vendors...</div>;
@@ -114,7 +97,7 @@ const VendorsPage = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="vendors" className="space-y-4">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="vendors">Vendor Management</TabsTrigger>
           <TabsTrigger value="corporate" className="flex items-center space-x-2">
@@ -142,40 +125,32 @@ const VendorsPage = () => {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredVendors.map((vendor) => (
-              <Card key={vendor.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{vendor.company_name}</CardTitle>
-                    <Badge variant="outline">{vendor.commission_rate}% Commission</Badge>
-                  </div>
-                  <CardDescription>{vendor.contact_person}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="font-medium">Phone:</span> {vendor.phone || 'Not provided'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Email:</span> {vendor.email || 'Not provided'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Address:</span> {vendor.address || 'Not provided'}
-                    </div>
-                  </div>
-                  <div className="mt-4 flex space-x-2">
-                    <Button size="sm" variant="outline" onClick={() => handleEdit(vendor)}>
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      View Details
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            <Card key={vendor.id} className="shadow-sm border rounded-lg p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold">{vendor.name}</h3>
+                  <p className="text-sm text-muted-foreground">{vendor.companyReg}</p>
+                </div>
+                <Badge variant="outline">ID: {vendor.vendorId}</Badge>
+              </div>
+
+              <div className="text-sm space-y-1">
+                <p><span className="font-medium">Company Reg:</span> {vendor.companyReg}</p>
+                <p><span className="font-medium">User ID:</span> {vendor.vendorId}</p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => handleEdit(vendor)}>
+                  Edit
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => handleDelete(String(vendor.id))}>
+                  Delete
+                </Button>
+              </div>
+            </Card>
+          ))}
           </div>
         </TabsContent>
-
         <TabsContent value="corporate">
           <CorporateBookingRequests />
         </TabsContent>
@@ -184,6 +159,7 @@ const VendorsPage = () => {
       {showForm && (
         <VendorForm
           vendor={editingVendor}
+          onSuccess={fetchVendors} // ✅ triggers refresh after create/update
           onClose={handleCloseForm}
         />
       )}

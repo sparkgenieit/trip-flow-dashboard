@@ -6,59 +6,65 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { createVendor, updateVendor } from '@/services/vendor';
 
 interface VendorFormProps {
   vendor?: any;
+  onSuccess: () => void;
   onClose: () => void;
 }
 
-const VendorForm: React.FC<VendorFormProps> = ({ vendor, onClose }) => {
-  const [formData, setFormData] = useState({
-    company_name: '',
-    contact_person: '',
-    phone: '',
-    email: '',
-    address: '',
-    commission_rate: ''
+const VendorForm: React.FC<VendorFormProps> = ({ vendor, onClose, onSuccess }) => {
+const [formData, setFormData] = useState({
+  name: '',
+  companyReg: '',
+  vendorId: ''
   });
+
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (vendor) {
-      setFormData({
-        company_name: vendor.company_name || '',
-        contact_person: vendor.contact_person || '',
-        phone: vendor.phone || '',
-        email: vendor.email || '',
-        address: vendor.address || '',
-        commission_rate: vendor.commission_rate?.toString() || ''
-      });
-    }
-  }, [vendor]);
+useEffect(() => {
+  if (vendor) {
+    setFormData({
+      name: vendor.name || '',
+      companyReg: vendor.companyReg || '',
+      vendorId: vendor.vendorId?.toString() || ''
+    });
+  }
+}, [vendor]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Mock success for demo
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast({ 
-        title: "Success", 
-        description: vendor ? "Vendor updated successfully (demo mode)" : "Vendor created successfully (demo mode)" 
-      });
+  const payload = {
+  name: formData.name,
+  companyReg: formData.companyReg,
+  vendorId: Number(formData.vendorId)
+  };
 
-      onClose();
-    } catch (error) {
-      console.error('Error saving vendor:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save vendor",
-        variant: "destructive",
-      });
-    } finally {
+
+  if (vendor?.id) {
+    await updateVendor(vendor.id, payload);
+    toast({ title: "Vendor updated successfully" });
+  } else {
+    await createVendor(payload);
+    toast({ title: "Vendor created successfully" });
+  }
+  onSuccess();
+  onClose();
+       }
+catch (error: any) {
+  console.error('Error saving vendor:', error);
+  toast({
+    title: "Error",
+    description: error?.response?.data?.message || "Failed to save vendor",
+    variant: "destructive",
+  });
+}
+ finally {
       setLoading(false);
     }
   };
@@ -75,63 +81,32 @@ const VendorForm: React.FC<VendorFormProps> = ({ vendor, onClose }) => {
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="company_name">Company Name</Label>
+            <Label htmlFor="name">Name</Label>
             <Input
-              id="company_name"
-              value={formData.company_name}
-              onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="companyReg">Company Name</Label>
+            <Input
+              id="companyReg"
+              value={formData.companyReg}
+              onChange={(e) => setFormData({ ...formData, companyReg: e.target.value })}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="contact_person">Contact Person</Label>
+            <Label htmlFor="vendorId">Vendor User ID</Label>
             <Input
-              id="contact_person"
-              value={formData.contact_person}
-              onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone</Label>
-            <Input
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
-            <Textarea
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="commission_rate">Commission Rate (%)</Label>
-            <Input
-              id="commission_rate"
+              id="vendorId"
               type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              value={formData.commission_rate}
-              onChange={(e) => setFormData({ ...formData, commission_rate: e.target.value })}
+              value={formData.vendorId}
+              onChange={(e) => setFormData({ ...formData, vendorId: e.target.value.replace(/\D/, '') })}
+              required
             />
           </div>
 
