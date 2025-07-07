@@ -9,12 +9,16 @@ import { useToast } from '@/hooks/use-toast';
 import VendorForm from './VendorForm';
 import CorporateBookingRequests from './CorporateBookingRequests';
 import { fetchAllVendors, deleteVendor } from '@/services/vendor';
+import VendorDetailsModal from './VendorDetailsModal';
 
 interface Vendor {
   id: number;
   name: string;
   companyReg: string;
-  vendorId: number;
+  vendor?: {
+    email?: string;
+    phone?: string;
+  };
 }
 
 const VendorsPage = () => {
@@ -24,6 +28,7 @@ const VendorsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,7 +38,8 @@ const VendorsPage = () => {
   const fetchVendors = async () => {
   try {
     const res = await fetchAllVendors();
-    setVendors(res.data);
+    console.log(res)
+    setVendors(res);
   } catch (error) {
     console.error('Error fetching vendors:', error);
     toast({
@@ -47,9 +53,9 @@ const VendorsPage = () => {
 };
 
   const handleEdit = (vendor: Vendor) => {
-    setEditingVendor(vendor);
-    setShowForm(true);
-  };
+  setEditingVendor(vendor); // Now includes nested vendor.email/phone
+  setShowForm(true);
+};
 
   const handleCloseForm = () => {
     setShowForm(false);
@@ -74,7 +80,7 @@ const VendorsPage = () => {
     });
   }
 };
-
+  console.log(vendors)
   const filteredVendors = (vendors || []).filter(vendor =>
   vendor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
   vendor.companyReg?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -131,17 +137,18 @@ const VendorsPage = () => {
                   <h3 className="text-lg font-semibold">{vendor.name}</h3>
                   <p className="text-sm text-muted-foreground">{vendor.companyReg}</p>
                 </div>
-                <Badge variant="outline">ID: {vendor.vendorId}</Badge>
               </div>
 
               <div className="text-sm space-y-1">
                 <p><span className="font-medium">Company Reg:</span> {vendor.companyReg}</p>
-                <p><span className="font-medium">User ID:</span> {vendor.vendorId}</p>
               </div>
 
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => handleEdit(vendor)}>
                   Edit
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setViewingVendor(vendor)}>
+                  View Details
                 </Button>
                 <Button size="sm" variant="destructive" onClick={() => handleDelete(String(vendor.id))}>
                   Delete
@@ -163,6 +170,10 @@ const VendorsPage = () => {
           onClose={handleCloseForm}
         />
       )}
+      {viewingVendor && (
+      <VendorDetailsModal vendor={viewingVendor} onClose={() => setViewingVendor(null)} />
+         )}
+
     </div>
   );
 };
