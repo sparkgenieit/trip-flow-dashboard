@@ -19,6 +19,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  isVendor: boolean;
+  isDriver: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,31 +46,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-useEffect(() => {
-  (async () => {
-    const token = localStorage.getItem("authToken");
-    console.log("Token in localStorage:", token);
-
-    if (token) {
-      try {
-        const decoded: DecodedToken = jwtDecode(token);
-        console.log("Decoded from localStorage:", decoded);
-
-        if (decoded.email && decoded.role) {
-          setUser({ email: decoded.email, role: decoded.role });
-        } else {
-          console.warn("Missing fields in token");
+  useEffect(() => {
+    (async () => {
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        try {
+          const decoded: DecodedToken = jwtDecode(token);
+          if (decoded.email && decoded.role) {
+            setUser({ email: decoded.email, role: decoded.role });
+          } else {
+            localStorage.removeItem("authToken");
+          }
+        } catch (e) {
           localStorage.removeItem("authToken");
         }
-      } catch (e) {
-        console.error("Invalid token", e);
-        localStorage.removeItem("authToken");
       }
-    }
-    setLoading(false);
-  })();
-}, []);
-
+      setLoading(false);
+    })();
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -111,9 +106,21 @@ useEffect(() => {
   };
 
   const isAdmin = user?.role === "ADMIN";
+  const isVendor = user?.role === "VENDOR";
+  const isDriver = user?.role === "DRIVER";
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, isAdmin }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        signIn,
+        signOut,
+        isAdmin,
+        isVendor,
+        isDriver,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

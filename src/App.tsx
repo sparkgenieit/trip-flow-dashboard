@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,8 +6,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+
 import DashboardOverview from "@/components/dashboard/DashboardOverview";
 import DriversPage from "@/components/drivers/DriversPage";
 import VehiclesPage from "@/components/vehicles/VehiclesPage";
@@ -19,6 +20,11 @@ import InvoicesPage from "@/components/invoices/InvoicesPage";
 import FeedbackPage from "@/components/feedback/FeedbackPage";
 import ReportsPage from "@/components/reports/ReportsPage";
 import CorporateDashboard from "@/components/corporate/CorporateDashboard";
+
+// ✅ NEW ROLE-BASED VEHICLE PAGES
+import AdminVehiclesPage from "@/pages/admin/VehiclesPage";
+import VendorVehiclesPage from "@/pages/vendor/VehiclesPage";
+import DriverVehiclesPage from "@/pages/driver/VehiclesPage";
 
 const queryClient = new QueryClient();
 
@@ -31,12 +37,16 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-        
-            <Route path="/dashboard/*" element={
-              <ProtectedRoute requireAdmin={true}>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }>
+
+            {/* ✅ ADMIN DASHBOARD ROUTES */}
+            <Route
+              path="/dashboard/*"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<DashboardOverview />} />
               <Route path="drivers" element={<DriversPage />} />
               <Route path="vehicles" element={<VehiclesPage />} />
@@ -48,6 +58,33 @@ const App = () => (
               <Route path="reports" element={<ReportsPage />} />
               <Route path="corporate/*" element={<CorporateDashboard />} />
             </Route>
+
+            {/* ✅ NEW: ROLE-SPECIFIC VEHICLE PAGES */}
+            <Route
+              path="/admin/vehicles"
+              element={
+                <ProtectedRoute requireAdmin={true}>
+                  <AdminVehiclesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vendor/vehicles"
+              element={
+                <ProtectedRoute requireVendor={true}>
+                  <VendorVehiclesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/driver/vehicles"
+              element={
+                <ProtectedRoute requireDriver={true}>
+                  <DriverVehiclesPage />
+                </ProtectedRoute>
+              }
+            />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
