@@ -14,7 +14,6 @@ export interface DriverCreateInput {
   assigned_vehicle_id?: string;
 }
 
-
 // ✅ Create driver with token
 export const createDriver = async (data: DriverCreateInput) => {
   const token = localStorage.getItem('authToken');
@@ -42,6 +41,17 @@ export const getDrivers = async () => {
 export const updateDriver = async (id: number, data: Partial<DriverCreateInput>) => {
   const token = localStorage.getItem('authToken');
   return await axios.patch(`${API_BASE}/${id}`, data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    withCredentials: true,
+  });
+};
+
+// ✅ Delete driver by ID
+export const deleteDriver = async (id: number | string) => {
+  const token = localStorage.getItem('authToken');
+  return await axios.delete(`${API_BASE}/${id}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

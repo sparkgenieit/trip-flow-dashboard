@@ -71,7 +71,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
         comfortLevel: vehicle.comfortLevel?.toString() || '',
         ratePerKm: vehicle.price?.toString() || '',
         status: vehicle.status || 'available',
-        vendorId: vehicle.vendorId?.toString() || '',
+        vendorId: vehicle.vendorId !== null ? vehicle.vendorId.toString() : 'independent',
         lastServicedDate: vehicle.lastServicedDate?.split('T')[0] || '',
       });
     }
@@ -107,10 +107,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
         status: formData.status,
         lastServicedDate: formData.lastServicedDate || undefined,
         vehicleTypeId: 1,
-        vendorId:
-          formData.vendorId && formData.vendorId !== 'independent'
-            ? parseInt(formData.vendorId)
-            : null,
+        vendorId: null,
       };
 
       if (vehicle?.id) {
@@ -239,10 +236,10 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
               <SelectContent>
                 <SelectItem value="independent">Independent</SelectItem>
                 {vendors.map((vendor) => (
-                  <SelectItem key={vendor.id} value={vendor.id}>
-                    {vendor.companyName}
-                  </SelectItem>
-                ))}
+                <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                  {vendor.companyName}
+                </SelectItem>
+              ))}
               </SelectContent>
             </Select>
           </div>
