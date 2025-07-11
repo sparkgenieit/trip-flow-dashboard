@@ -11,61 +11,64 @@ import { createDriver, updateDriver } from '@/services/drivers';
 import { fetchAllVendors } from '@/services/vendor';
 import { getVehicles } from '@/services/vehicles';
 
-interface Driver {
-  id: number;
-  license_number: string;
-  license_expiry: string;
-  is_part_time: boolean;
-  is_available: boolean;
-  vendor_id: number | null;
-  assigned_vehicle_id?: number;
-  user_id?: number;
-  profiles?: {
-    full_name: string;
-    phone: string;
-  };
+export interface DriverFormInput {
+  id?: number;
+  fullName: string;
+  phone: string;
+  email: string;
+  licenseNumber: string;
+  licenseExpiry: string;
+  isPartTime: boolean;
+  isAvailable: boolean;
+  vendorId?: number | null;
+  assignedVehicleId?: number | null;
+  userId?: number;
 }
 
+
 interface DriverFormProps {
-  driver?: Driver;
+  driver?: DriverFormInput;
   onClose: () => void;
 }
 
 const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
-  const [formData, setFormData] = useState({
-    full_name: '',
-    phone: '',
-    email: '',
-    license_number: '',
-    license_expiry: '',
-    is_part_time: false,
-    is_available: true,
-    vendor_id: '',
-    assigned_vehicle_id: '',
-    user_id: ''
-  });
+  const [formData, setFormData] = useState<DriverFormInput>({
+  fullName: '',
+  phone: '',
+  email: '',
+  licenseNumber: '',
+  licenseExpiry: '',
+  isPartTime: false,
+  isAvailable: true,
+  vendorId: undefined,
+  assignedVehicleId: undefined,
+  userId: undefined
+});
+
   const [vendors, setVendors] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
+useEffect(() => {
   fetchVendorsAndVehicles();
 
-  if (driver) {
+    if (driver) {
     setFormData({
-      full_name: driver.profiles?.full_name || '',
-      phone: driver.profiles?.phone || '',
-      email: '',
-      license_number: driver.license_number || '',
-      license_expiry: driver.license_expiry?.split('T')[0] || '',
-      is_part_time: driver.is_part_time || false,
-      is_available: driver.is_available || true,
-      vendor_id: driver.vendor_id?.toString() || '',
-      assigned_vehicle_id: driver.assigned_vehicle_id?.toString() || '',
-      user_id: driver.user_id?.toString() || ''
+      fullName: driver.fullName,
+      phone: driver.phone,
+      email: driver.email,
+      licenseNumber: driver.licenseNumber,
+      licenseExpiry: driver.licenseExpiry?.split('T')[0] || '',
+      isPartTime: driver.isPartTime,
+      isAvailable: driver.isAvailable,
+      vendorId: driver.vendorId ?? undefined,
+      assignedVehicleId: driver.assignedVehicleId ?? undefined,
+      userId: driver.userId ?? undefined,
+      id: driver.id
     });
   }
+
 }, [driver]);
 
 const fetchVendorsAndVehicles = async () => {
@@ -84,18 +87,18 @@ const fetchVendorsAndVehicles = async () => {
   e.preventDefault();
   setLoading(true);
 
-  const payload = {
-  fullName: formData.full_name,
-  phone: formData.phone,
-  email: formData.email,
-  licenseNumber: formData.license_number,
-  licenseExpiry: formData.license_expiry,
-  isPartTime: formData.is_part_time,
-  isAvailable: formData.is_available,
-  vendorId: formData.vendor_id ? Number(formData.vendor_id) : undefined,
-  vehicleId: formData.assigned_vehicle_id ? Number(formData.assigned_vehicle_id) : undefined,
-  userId: formData.user_id ? Number(formData.user_id) : undefined,
-};
+    const payload = {
+    fullName: formData.fullName,
+    phone: formData.phone,
+    email: formData.email,
+    licenseNumber: formData.licenseNumber,
+    licenseExpiry: formData.licenseExpiry,
+    isPartTime: formData.isPartTime,
+    isAvailable: formData.isAvailable,
+    vendorId: formData.vendorId ? Number(formData.vendorId) : undefined,
+    vehicleId: formData.assignedVehicleId ? Number(formData.assignedVehicleId) : undefined,
+    userId: formData.userId ? Number(formData.userId) : undefined,
+  };
 
   try {
     if (driver && driver.id) {
@@ -132,8 +135,8 @@ const fetchVendorsAndVehicles = async () => {
             <Label htmlFor="full_name">Full Name</Label>
             <Input
               id="full_name"
-              value={formData.full_name}
-              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+              value={formData.fullName}
+              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
               required
             />
           </div>
@@ -165,8 +168,8 @@ const fetchVendorsAndVehicles = async () => {
             <Label htmlFor="license_number">License Number</Label>
             <Input
               id="license_number"
-              value={formData.license_number}
-              onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
+              value={formData.licenseNumber}
+              onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
               required
             />
           </div>
@@ -176,53 +179,68 @@ const fetchVendorsAndVehicles = async () => {
             <Input
               id="license_expiry"
               type="date"
-              value={formData.license_expiry}
-              onChange={(e) => setFormData({ ...formData, license_expiry: e.target.value })}
+              value={formData.licenseExpiry}
+              onChange={(e) => setFormData({ ...formData, licenseExpiry: e.target.value })}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="vendor_id">Vendor</Label>
-            <Select value={formData.vendor_id} onValueChange={(value) => setFormData({ ...formData, vendor_id: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select vendor (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectContent>
-                 {vendors.map((vendor: any) => (
-                <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                 {vendor.companyReg || vendor.company_name}
-                </SelectItem>
-                 ))}
-                 </SelectContent>
+  <Label htmlFor="vendor_id">Vendor</Label>
+  <Select
+  value={formData.vendorId !== undefined ? String(formData.vendorId) : 'unassigned'}
+  onValueChange={(value) =>
+    setFormData({
+      ...formData,
+      vendorId: value === 'unassigned' ? undefined : Number(value),
+    })
+  }>
+    <SelectTrigger>
+      <SelectValue placeholder="Select vendor (optional)" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="unassigned">No vendor assigned</SelectItem> {/* ✅ Safe fallback value */}
+      {vendors.map((vendor: any) => (
+        <SelectItem key={vendor.id} value={vendor.id.toString()}>
+          {vendor.companyReg || vendor.name}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
 
-              </SelectContent>
-            </Select>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="assigned_vehicle_id">Assigned Vehicle</Label>
-            <Select value={formData.assigned_vehicle_id} onValueChange={(value) => setFormData({ ...formData, assigned_vehicle_id: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select vehicle (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-  <SelectItem value="none">No vehicle assigned</SelectItem> {/* Use a valid string */}
-  {vehicles.map((vehicle: { id: number; registrationNumber: string; model: string }) => (
-  <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-    {vehicle.registrationNumber} - {vehicle.model}
-  </SelectItem>
-))}
-</SelectContent>
+          {/* 🔁 REPLACE THIS BLOCK: Assigned Vehicle Select */}
+    <div className="space-y-2">
+      <Label htmlFor="assigned_vehicle_id">Assigned Vehicle</Label>
+      <Select
+        value={formData.assignedVehicleId !== undefined ? String(formData.assignedVehicleId) : 'unassigned'}
+        onValueChange={(value) =>
+          setFormData({
+            ...formData,
+            assignedVehicleId: value === 'unassigned' ? undefined : Number(value),
+          })
+        }
+      >
+    <SelectTrigger>
+      <SelectValue placeholder="Select vehicle (optional)" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="unassigned">No vehicle assigned</SelectItem> {/* ✅ Safe fallback value */}
+      {vehicles.map((vehicle: any) => (
+        <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+          {vehicle.registrationNumber} - {vehicle.model}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
 
-            </Select>
-          </div>
 
           <div className="flex items-center space-x-2">
             <Checkbox
               id="is_part_time"
-              checked={formData.is_part_time}
-              onCheckedChange={(checked) => setFormData({ ...formData, is_part_time: checked as boolean })}
+              checked={formData.isPartTime}
+              onCheckedChange={(checked) => setFormData({ ...formData, isPartTime: checked as boolean })}
             />
             <Label htmlFor="is_part_time">Part-time driver</Label>
           </div>
@@ -230,8 +248,8 @@ const fetchVendorsAndVehicles = async () => {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="is_available"
-              checked={formData.is_available}
-              onCheckedChange={(checked) => setFormData({ ...formData, is_available: checked as boolean })}
+              checked={formData.isAvailable}
+              onCheckedChange={(checked) => setFormData({ ...formData, isAvailable: checked as boolean })}
             />
             <Label htmlFor="is_available">Available for trips</Label>
           </div>

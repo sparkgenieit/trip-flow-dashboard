@@ -1,4 +1,4 @@
-import { getDrivers } from '@/services/drivers';
+import { getDrivers, deleteDriver } from '@/services/drivers';
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,35 +7,75 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import DriverForm from './DriverForm';
+import type { DriverFormInput } from './DriverForm';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  } 
+from '@/components/ui/dialog';
+  interface Driver {
+  id: number;
+  fullName: string;
+  phone: string;
+  email: string;
+  licenseNumber: string;
+  licenseExpiry: string;
+  isPartTime: boolean;
+  isAvailable: boolean;
+  vendorId: number;
+  assignedVehicleId: number;
+  userId: number;
 
-interface Driver {
-  id: string;
-  license_number: string;
-  license_expiry: string;
-  is_part_time: boolean;
-  is_available: boolean;
-  vendor_id: string;
-  assigned_vehicle_id: string;
-  profiles: {
-    full_name: string;
+  vendor?: {
+    id: number;
+    name: string;
+    companyReg: string;
+    createdAt: string;
+    userId: number;
+  };
+
+  assignedVehicle?: {
+    id: number;
+    name: string;
+    model: string;
+    image: string;
+    capacity: number;
+    registrationNumber: string;
+    price: number;
+    originalPrice: number;
+    status: string;
+    comfortLevel: number;
+    lastServicedDate: string;
+    vehicleTypeId: number;
+    vendorId: number | null;
+  };
+
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    password: string;
     phone: string;
-  };
-  vendors: {
-    company_name: string;
-  };
-  vehicles: {
-    vehicle_number: string;
-    type: string;
+    role: string;
+    createdAt: string;
+    updatedAt: string;
+    vendorId: number | null;
   };
 }
+
 
 const DriversPage = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [editingDriver, setEditingDriver] = useState<DriverFormInput | null>(null);
   const { toast } = useToast();
+  const [viewingDriver, setViewingDriver] = useState<Driver | null>(null);
 
   useEffect(() => {
     fetchDrivers();
@@ -58,9 +98,44 @@ const DriversPage = () => {
 };
 
   const handleEdit = (driver: Driver) => {
-    setEditingDriver(driver);
-    setShowForm(true);
+  const driverInput: DriverFormInput = {
+    id: driver.id,
+    fullName: driver.fullName,
+    phone: driver.phone,
+    email: driver.email,
+    licenseNumber: driver.licenseNumber,
+    licenseExpiry: driver.licenseExpiry
+      ? new Date(driver.licenseExpiry).toISOString().substring(0, 10)
+      : '',
+    isPartTime: driver.isPartTime,
+    isAvailable: driver.isAvailable,
+    vendorId: driver.vendorId || undefined,
+    assignedVehicleId: driver.assignedVehicleId || undefined,
+    userId: driver.userId,
   };
+
+  setEditingDriver(driverInput);
+  setShowForm(true);
+};
+
+  const handleDelete = async (id: string) => {
+  const confirmed = window.confirm("Are you sure you want to delete this driver?");
+  if (!confirmed) return;
+
+  try {
+    await deleteDriver(id);
+    toast({ title: "Deleted", description: "Driver removed successfully." });
+    fetchDrivers(); // Refresh list
+  } catch (error) {
+    console.error('Delete error:', error);
+    toast({
+      title: "Error",
+      description: "Failed to delete driver.",
+      variant: "destructive"
+    });
+  }
+};
+
 
   const handleCloseForm = () => {
     setShowForm(false);
@@ -69,8 +144,8 @@ const DriversPage = () => {
   };
 
 const filteredDrivers = drivers.filter((driver) => {
-  const name = driver?.profiles?.full_name || '';
-  const license = driver?.license_number || '';
+  const name = driver?.fullName || '';
+  const license = driver?.licenseNumber || '';
   return (
     name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     license.toLowerCase().includes(searchTerm.toLowerCase())
@@ -110,37 +185,37 @@ const filteredDrivers = drivers.filter((driver) => {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredDrivers.map((driver) => (
           <Card key={driver.id} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{driver.profiles?.full_name}</CardTitle>
+                <CardTitle className="text-lg">{driver.fullName}</CardTitle>
                 <div className="flex space-x-2">
-                  <Badge variant={driver.is_available ? "default" : "secondary"}>
-                    {driver.is_available ? "Available" : "Unavailable"}
+                  <Badge variant={driver.isAvailable ? "default" : "secondary"}>
+                    {driver.isAvailable ? "Available" : "Unavailable"}
                   </Badge>
-                  {driver.is_part_time && (
+                  {driver.isPartTime && (
                     <Badge variant="outline">Part Time</Badge>
                   )}
                 </div>
               </div>
-              <CardDescription>License: {driver.license_number}</CardDescription>
+              <CardDescription>License: {driver.licenseNumber}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">
                 <div>
-                  <span className="font-medium">Phone:</span> {driver.profiles?.phone}
+                  <span className="font-medium">Phone:</span> {driver.phone}
                 </div>
                 <div>
-                  <span className="font-medium">Vendor:</span> {driver.vendors?.company_name || 'Independent'}
+                  <span className="font-medium">Vendor:</span> {driver.vendor?.name || 'Independent'}
                 </div>
                 <div>
-                  <span className="font-medium">Vehicle:</span> {driver.vehicles?.vehicle_number || 'Not assigned'}
+                  <span className="font-medium">Vehicle:</span> {driver.assignedVehicle?.registrationNumber || 'Not assigned'}
                 </div>
                 <div>
                   <span className="font-medium">License Expiry:</span> {
-                    driver.license_expiry ? new Date(driver.license_expiry).toLocaleDateString() : 'Not set'
+                    driver.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : 'Not set'
                   }
                 </div>
               </div>
@@ -148,8 +223,17 @@ const filteredDrivers = drivers.filter((driver) => {
                 <Button size="sm" variant="outline" onClick={() => handleEdit(driver)}>
                   Edit
                 </Button>
-                <Button size="sm" variant="outline">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setViewingDriver(driver)}>
                   View Details
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleDelete(driver.id.toString())}>
+                  Delete
                 </Button>
               </div>
             </CardContent>
@@ -157,11 +241,40 @@ const filteredDrivers = drivers.filter((driver) => {
         ))}
       </div>
 
+
       {showForm && (
         <DriverForm
           driver={editingDriver}
           onClose={handleCloseForm}
         />
+      )}
+      {viewingDriver && (
+        <Dialog open={true} onOpenChange={() => setViewingDriver(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Driver Details</DialogTitle>
+              <DialogDescription>Full driver profile</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2 text-sm">
+            <div><strong>Name:</strong> {viewingDriver.fullName}</div>
+            <div><strong>Phone:</strong> {viewingDriver.phone}</div>
+            <div><strong>License Number:</strong> {viewingDriver.licenseNumber}</div>
+            <div><strong>License Expiry:</strong> {
+              viewingDriver.licenseExpiry ? new Date(viewingDriver.licenseExpiry).toLocaleDateString() : 'Not set'
+            }</div>
+            <div><strong>Status:</strong> {viewingDriver.isAvailable ? 'Available' : 'Unavailable'}</div>
+            <div><strong>Type:</strong> {viewingDriver.isPartTime ? 'Part Time' : 'Full Time'}</div>
+            <div><strong>Vendor:</strong> {viewingDriver.vendor?.name || 'Independent'}</div>
+            <div><strong>Vehicle Assigned:</strong> {viewingDriver.assignedVehicle?.registrationNumber || 'Not assigned'}</div>
+          </div>
+
+ 
+            <DialogFooter>
+              <Button onClick={() => setViewingDriver(null)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
