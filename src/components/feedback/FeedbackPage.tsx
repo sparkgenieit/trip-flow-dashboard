@@ -1,11 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getFeedback } from '../../services/feedback'; // ✅ NEW
+
 
 interface Feedback {
   id: number;
@@ -51,111 +54,21 @@ const FeedbackPage = () => {
   }, []);
 
   const fetchFeedback = async () => {
-    try {
-      // Mock data to avoid Supabase errors
-      const mockFeedback: Feedback[] = [
-  {
-    id: 1,
-    tripId: 1,
-    riderId: 1,
-    driverId: 1,
-    driverRating: 5,
-    vehicleRating: 4,
-    serviceRating: 5,
-    comment: 'Excellent service! Driver was very professional and the vehicle was clean.',
-    feedbackTime: '2024-01-15T10:30:00Z',
-    rider: {
-      name: 'Alice Johnson',
-      email: 'alice@example.com',
-    },
-    driver: {
-      fullName: 'John Smith',
-    },
-    trip: {
-      booking: {
-        pickupAddress: {
-          address: 'Airport Terminal 1',
-        },
-        dropAddress: {
-          address: 'Downtown Hotel',
-        },
-      },
-    },
-  },
-  {
-    id: 2,
-    tripId: 2,
-    riderId: 2,
-    driverId: 2,
-    driverRating: 4,
-    vehicleRating: 3,
-    serviceRating: 4,
-    comment: 'Good trip overall, vehicle could have been cleaner.',
-    feedbackTime: '2024-01-14T14:15:00Z',
-    rider: {
-      name: 'Bob Wilson',
-      email: 'bob@example.com',
-    },
-    driver: {
-      fullName: 'Sarah Johnson',
-    },
-    trip: {
-      booking: {
-        pickupAddress: {
-          address: 'City Mall',
-        },
-        dropAddress: {
-          address: 'Residential Area',
-        },
-      },
-    },
-  },
-  {
-    id: 3,
-    tripId: 3,
-    riderId: 3,
-    driverId: 3,
-    driverRating: 5,
-    vehicleRating: 5,
-    serviceRating: 5,
-    comment: 'Perfect ride! Highly recommend this service.',
-    feedbackTime: '2024-01-13T09:45:00Z',
-    rider: {
-      name: 'Carol Davis',
-      email: 'carol@example.com',
-    },
-    driver: {
-      fullName: 'Mike Rodriguez',
-    },
-    trip: {
-      booking: {
-        pickupAddress: {
-          address: 'Business District',
-        },
-        dropAddress: {
-          address: 'Conference Center',
-        },
-      },
-    },
+  try {
+    const data = await getFeedback(); // ✅ fetch from real API
+    setFeedback(data);
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
+    toast({
+      title: "Error",
+      description: "Failed to fetch feedback",
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
   }
-];
-setFeedback(mockFeedback);
+};
 
-      toast({
-        title: "Info",
-        description: "Using demo data (Supabase connection disabled)",
-      });
-    } catch (error) {
-      console.error('Error fetching feedback:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch feedback",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const renderStars = (rating: number) => {
     return (
