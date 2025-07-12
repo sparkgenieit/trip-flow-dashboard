@@ -6,32 +6,23 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, MapPin, Clock, AlertTriangle, Phone, MapIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getTrips } from '@/services/trip';
 
 interface Trip {
-  id: string;
-  start_time: string;
-  end_time: string;
-  start_location: string;
-  end_location: string;
-  actual_distance: number;
+  id: number;
+  startTime: string;
+  endTime?: string;
+  distance?: number;
   status: string;
-  breakdown_reported: boolean;
-  breakdown_notes: string;
-  bookings: {
-    pickup_location: string;
-    dropoff_location: string;
-    profiles: {
-      full_name: string;
-    };
+  breakdownReported: boolean;
+  breakdownNotes?: string;
+  booking?: {
+    pickupAddress?: { address: string };
+    dropAddress?: { address: string };
+    user?: { name: string };
   };
-  drivers: {
-    profiles: {
-      full_name: string;
-    };
-  };
-  vehicles: {
-    vehicle_number: string;
-  };
+  driver?: { fullName: string };
+  vehicle?: { registrationNumber: string };
 }
 
 const TripsPage = () => {
@@ -44,94 +35,10 @@ const TripsPage = () => {
     fetchTrips();
   }, []);
 
-  const fetchTrips = async () => {
+    const fetchTrips = async () => {
     try {
-      // Mock data to avoid Supabase errors
-      const mockTrips = [
-        {
-          id: '1',
-          start_time: '2024-06-19T08:30:00',
-          end_time: '2024-06-19T10:45:00',
-          start_location: 'Airport Terminal 1',
-          end_location: 'Downtown Hotel',
-          actual_distance: 25.5,
-          status: 'completed',
-          breakdown_reported: false,
-          breakdown_notes: '',
-          bookings: {
-            pickup_location: 'Airport Terminal 1',
-            dropoff_location: 'Downtown Hotel',
-            profiles: {
-              full_name: 'John Doe'
-            }
-          },
-          drivers: {
-            profiles: {
-              full_name: 'Mike Wilson'
-            }
-          },
-          vehicles: {
-            vehicle_number: 'CAR-001'
-          }
-        },
-        {
-          id: '2',
-          start_time: '2024-06-19T14:15:00',
-          end_time: null,
-          start_location: 'Business District',
-          end_location: 'Tech Park',
-          actual_distance: 0,
-          status: 'started',
-          breakdown_reported: false,
-          breakdown_notes: '',
-          bookings: {
-            pickup_location: 'Business District',
-            dropoff_location: 'Tech Park',
-            profiles: {
-              full_name: 'Sarah Johnson'
-            }
-          },
-          drivers: {
-            profiles: {
-              full_name: 'David Lee'
-            }
-          },
-          vehicles: {
-            vehicle_number: 'CAR-002'
-          }
-        },
-        {
-          id: '3',
-          start_time: '2024-06-19T16:00:00',
-          end_time: null,
-          start_location: 'Shopping Mall',
-          end_location: 'Residential Area',
-          actual_distance: 0,
-          status: 'breakdown',
-          breakdown_reported: true,
-          breakdown_notes: 'Engine overheating issue reported by driver',
-          bookings: {
-            pickup_location: 'Shopping Mall',
-            dropoff_location: 'Residential Area',
-            profiles: {
-              full_name: 'Alex Brown'
-            }
-          },
-          drivers: {
-            profiles: {
-              full_name: 'Emily Davis'
-            }
-          },
-          vehicles: {
-            vehicle_number: 'CAR-003'
-          }
-        }
-      ];
-      setTrips(mockTrips);
-      toast({
-        title: "Info",
-        description: "Using demo data (Supabase connection disabled)",
-      });
+      const data = await getTrips();
+      setTrips(data);
     } catch (error) {
       console.error('Error fetching trips:', error);
       toast({
