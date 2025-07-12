@@ -8,27 +8,37 @@ import { Search, Filter, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Feedback {
-  id: string;
-  driver_rating: number;
-  vehicle_rating: number;
-  service_rating: number;
+  id: number;
+  tripId: number;
+  riderId: number;
+  driverId: number;
+  driverRating: number;
+  vehicleRating: number;
+  serviceRating: number;
   comment: string;
-  feedback_time: string;
-  profiles: {
-    full_name: string;
+  feedbackTime: string;
+
+  rider: {
+    name: string;
+    email: string;
   };
-  trips: {
-    bookings: {
-      pickup_location: string;
-      dropoff_location: string;
-    };
-    drivers: {
-      profiles: {
-        full_name: string;
+
+  driver: {
+    fullName: string;
+  };
+
+  trip: {
+    booking: {
+      pickupAddress: {
+        address: string;
+      };
+      dropAddress: {
+        address: string;
       };
     };
   };
 }
+
 
 const FeedbackPage = () => {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
@@ -43,75 +53,94 @@ const FeedbackPage = () => {
   const fetchFeedback = async () => {
     try {
       // Mock data to avoid Supabase errors
-      const mockFeedback = [
-        {
-          id: '1',
-          driver_rating: 5,
-          vehicle_rating: 4,
-          service_rating: 5,
-          comment: 'Excellent service! Driver was very professional and the vehicle was clean.',
-          feedback_time: '2024-01-15T10:30:00Z',
-          profiles: {
-            full_name: 'Alice Johnson'
-          },
-          trips: {
-            bookings: {
-              pickup_location: 'Airport Terminal 1',
-              dropoff_location: 'Downtown Hotel'
-            },
-            drivers: {
-              profiles: {
-                full_name: 'John Smith'
-              }
-            }
-          }
+      const mockFeedback: Feedback[] = [
+  {
+    id: 1,
+    tripId: 1,
+    riderId: 1,
+    driverId: 1,
+    driverRating: 5,
+    vehicleRating: 4,
+    serviceRating: 5,
+    comment: 'Excellent service! Driver was very professional and the vehicle was clean.',
+    feedbackTime: '2024-01-15T10:30:00Z',
+    rider: {
+      name: 'Alice Johnson',
+      email: 'alice@example.com',
+    },
+    driver: {
+      fullName: 'John Smith',
+    },
+    trip: {
+      booking: {
+        pickupAddress: {
+          address: 'Airport Terminal 1',
         },
-        {
-          id: '2',
-          driver_rating: 4,
-          vehicle_rating: 3,
-          service_rating: 4,
-          comment: 'Good trip overall, vehicle could have been cleaner.',
-          feedback_time: '2024-01-14T14:15:00Z',
-          profiles: {
-            full_name: 'Bob Wilson'
-          },
-          trips: {
-            bookings: {
-              pickup_location: 'City Mall',
-              dropoff_location: 'Residential Area'
-            },
-            drivers: {
-              profiles: {
-                full_name: 'Sarah Johnson'
-              }
-            }
-          }
+        dropAddress: {
+          address: 'Downtown Hotel',
         },
-        {
-          id: '3',
-          driver_rating: 5,
-          vehicle_rating: 5,
-          service_rating: 5,
-          comment: 'Perfect ride! Highly recommend this service.',
-          feedback_time: '2024-01-13T09:45:00Z',
-          profiles: {
-            full_name: 'Carol Davis'
-          },
-          trips: {
-            bookings: {
-              pickup_location: 'Business District',
-              dropoff_location: 'Conference Center'
-            },
-            drivers: {
-              profiles: {
-                full_name: 'Mike Rodriguez'
-              }
-            }
-          }
-        }
-      ];
-      setFeedback(mockFeedback);
+      },
+    },
+  },
+  {
+    id: 2,
+    tripId: 2,
+    riderId: 2,
+    driverId: 2,
+    driverRating: 4,
+    vehicleRating: 3,
+    serviceRating: 4,
+    comment: 'Good trip overall, vehicle could have been cleaner.',
+    feedbackTime: '2024-01-14T14:15:00Z',
+    rider: {
+      name: 'Bob Wilson',
+      email: 'bob@example.com',
+    },
+    driver: {
+      fullName: 'Sarah Johnson',
+    },
+    trip: {
+      booking: {
+        pickupAddress: {
+          address: 'City Mall',
+        },
+        dropAddress: {
+          address: 'Residential Area',
+        },
+      },
+    },
+  },
+  {
+    id: 3,
+    tripId: 3,
+    riderId: 3,
+    driverId: 3,
+    driverRating: 5,
+    vehicleRating: 5,
+    serviceRating: 5,
+    comment: 'Perfect ride! Highly recommend this service.',
+    feedbackTime: '2024-01-13T09:45:00Z',
+    rider: {
+      name: 'Carol Davis',
+      email: 'carol@example.com',
+    },
+    driver: {
+      fullName: 'Mike Rodriguez',
+    },
+    trip: {
+      booking: {
+        pickupAddress: {
+          address: 'Business District',
+        },
+        dropAddress: {
+          address: 'Conference Center',
+        },
+      },
+    },
+  }
+];
+setFeedback(mockFeedback);
+
       toast({
         title: "Info",
         description: "Using demo data (Supabase connection disabled)",
@@ -145,12 +174,12 @@ const FeedbackPage = () => {
   };
 
   const getAverageRating = (feedback: Feedback) => {
-    const ratings = [feedback.driver_rating, feedback.vehicle_rating, feedback.service_rating].filter(Boolean);
+    const ratings = [feedback.driverRating, feedback.vehicleRating, feedback.serviceRating].filter(Boolean);
     return ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : 'N/A';
   };
 
   const filteredFeedback = feedback.filter(item =>
-    item.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.rider?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.comment?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -190,10 +219,10 @@ const FeedbackPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">
-                    {item.profiles?.full_name || 'Anonymous Customer'}
+                    {item.rider?.name || 'Anonymous Customer'}
                   </CardTitle>
                   <CardDescription>
-                    {new Date(item.feedback_time).toLocaleDateString()}
+                    {new Date(item.feedbackTime).toLocaleDateString()}
                   </CardDescription>
                 </div>
                 <Badge variant="outline">
@@ -202,36 +231,38 @@ const FeedbackPage = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {item.trips?.bookings && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                  <div className="text-sm">
-                    <span className="font-medium">Trip:</span> {item.trips.bookings.pickup_location} → {item.trips.bookings.dropoff_location}
-                  </div>
-                  {item.trips.drivers?.profiles && (
-                    <div className="text-sm">
-                      <span className="font-medium">Driver:</span> {item.trips.drivers.profiles.full_name}
-                    </div>
-                  )}
-                </div>
-              )}
+       {item.trip?.booking && (
+  <div className="mb-4 p-3 bg-gray-50 rounded-md">
+    <div className="text-sm">
+      <span className="font-medium">Trip:</span>{" "}
+      {item.trip.booking.pickupAddress?.address} → {item.trip.booking.dropAddress?.address}
+    </div>
+    {item.driver?.fullName && (
+      <div className="text-sm">
+        <span className="font-medium">Driver:</span> {item.driver.fullName}
+      </div>
+    )}
+  </div>
+)}
+
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                {item.driver_rating && (
+                {item.driverRating && (
                   <div>
                     <span className="font-medium text-sm">Driver Rating:</span>
-                    {renderStars(item.driver_rating)}
+                    {renderStars(item.driverRating)}
                   </div>
                 )}
-                {item.vehicle_rating && (
+                {item.vehicleRating && (
                   <div>
                     <span className="font-medium text-sm">Vehicle Rating:</span>
-                    {renderStars(item.vehicle_rating)}
+                    {renderStars(item.vehicleRating)}
                   </div>
                 )}
-                {item.service_rating && (
+                {item.serviceRating && (
                   <div>
                     <span className="font-medium text-sm">Service Rating:</span>
-                    {renderStars(item.service_rating)}
+                    {renderStars(item.serviceRating)}
                   </div>
                 )}
               </div>
