@@ -61,3 +61,34 @@ export const deleteVehicle = async (id: number) => {
     withCredentials: true,
   });
 };
+
+
+// ✅ Fetch available vehicles by vehicleTypeId
+export const getAvailableVehicles = async (vehicleTypeId: number) => {
+  const token = localStorage.getItem('authToken');
+  const res = await axios.get(`${API_BASE}/available?typeId=${vehicleTypeId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+// ✅ Assign vehicles to a booking
+export const assignVehicleToBooking = async (
+  bookingId: number,
+  vehicleIds: string[]
+) => {
+  const token = localStorage.getItem('authToken');
+  return await axios.post(
+    `${import.meta.env.VITE_API_BASE_URL}/bookings/${bookingId}/assign-vehicles`,
+    { vehicleIds },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      withCredentials: true,
+    }
+  );
+};

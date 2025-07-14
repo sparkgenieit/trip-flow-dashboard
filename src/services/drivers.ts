@@ -58,3 +58,29 @@ export const deleteDriver = async (id: number | string) => {
     withCredentials: true,
   });
 };
+
+// ✅ Get available drivers for a vehicle
+export const getAvailableDrivers = async (vehicleId: number) => {
+  const token = localStorage.getItem('authToken');
+  const res = await axios.get(`${API_BASE}/available?vehicleId=${vehicleId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+// ✅ Assign a driver to a vehicle
+export const assignDriverToVehicle = async (vehicleId: number, driverId: number) => {
+  const token = localStorage.getItem('authToken');
+  return await axios.patch(`${API_BASE}/assign`, {
+    vehicleId,
+    driverId,
+  }, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    withCredentials: true,
+  });
+};

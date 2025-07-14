@@ -1,26 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Tabs, TabsList, TabsTrigger, TabsContent,
-} from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2, Building, Users } from 'lucide-react';
-import BookingForm from '@/components/bookings/BookingForm';
-import CorporateBookingForm from '@/components/bookings/CorporateBookingForm';
 import { fetchBookings, deleteBooking } from '@/services/bookings';
 import { useToast } from '@/hooks/use-toast';
+import { Plus } from 'lucide-react';
+import BookingForm from '@/components/bookings/BookingForm';
+import CorporateBookingForm from '@/components/bookings/CorporateBookingForm';
+import AssignVehicleModal from '@/components/bookings/AssignVehicleModal';
 
 interface Booking {
   id: number;
   fare: number;
   pickupDateTime: string;
   status: string;
-  vehicleType: { name: string };
+  vehicleType: { id: number; name: string };
   TripType: { label: string };
   pickupAddress: { address: string };
   dropAddress: { address: string };
   fromCity: { name: string };
   toCity: { name: string };
+  customerType: 'Corporate' | 'Individual';
+  customerName: string;
+  numVehicles: number;
+  vehiclesAssigned: number;
 }
 
 const BookingsPage = () => {
@@ -29,13 +31,20 @@ const BookingsPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [showCorporateForm, setShowCorporateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<{
+    bookingId: number;
+    vehicleTypeId: number;
+    numVehicles: number;
+  } | null>(null);
   const { toast } = useToast();
 
   const loadBookings = async () => {
     try {
       const data = await fetchBookings();
       setBookings(data);
-    } catch (err) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to load bookings',
@@ -62,102 +71,154 @@ const BookingsPage = () => {
     }
   };
 
+  const handleAssign = (booking: Booking) => {
+    setAssignTarget({
+      bookingId: booking.id,
+      vehicleTypeId: booking.vehicleType?.id,
+      numVehicles: booking.numVehicles,
+    });
+    setAssignModalOpen(true);
+  };
+
   const filteredBookings = bookings.filter((b) =>
-    b.pickupAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    b.dropAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    b.fromCity?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    (b.pickupAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      b.dropAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      b.fromCity?.name?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (statusFilter ? b.status === statusFilter : true)
   );
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Bookings</h2>
-          <p className="text-muted-foreground">Manage individual and corporate bookings</p>
+          <h2 className="text-3xl font-bold">Bookings</h2>
+          <p className="text-muted-foreground">Manage trip bookings and vehicle assignments</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowForm(true)} variant="outline">
-            <Plus className="mr-2 h-4 w-4" /> New Booking
-          </Button>
-          <Button onClick={() => setShowCorporateForm(true)}>
-            <Building className="mr-2 h-4 w-4" /> Corporate Request
-          </Button>
-        </div>
+        <Button onClick={() => setShowForm(true)} className="bg-blue-600 text-white">
+          <Plus className="h-4 w-4 mr-2" /> New Booking
+        </Button>
       </div>
 
-      <Tabs defaultValue="individual" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="individual" className="flex items-center gap-2">
-            <Users className="h-4 w-4" /> Individual Bookings
-          </TabsTrigger>
-          <TabsTrigger value="corporate" className="flex items-center gap-2">
-            <Building className="h-4 w-4" /> Corporate Requests
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex items-center gap-4">
+        <Input
+          placeholder="Search by customer, pickup, or destination..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full max-w-md"
+        />
+        <select
+          className="border rounded px-4 py-2"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="">All Status</option>
+          <option value="Confirmed">Confirmed</option>
+          <option value="Completed">Completed</option>
+        </select>
+      </div>
 
-        {/* INDIVIDUAL TAB */}
-        <TabsContent value="individual" className="space-y-4">
-          <Input
-            placeholder="Search bookings..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="bg-white border rounded-md">
+        <div className="p-4 border-b font-semibold grid grid-cols-7 gap-2 text-sm text-gray-700">
+          <div>Customer</div>
+          <div>Trip Details</div>
+          <div>Pickup</div>
+          <div>Date & Time</div>
+          <div>Vehicles</div>
+          <div>Status</div>
+          <div>Actions</div>
+        </div>
 
-          {filteredBookings.length === 0 ? (
-            <p className="text-gray-500">No bookings available.</p>
-          ) : (
-            <div className="grid gap-4">
-              {filteredBookings.map((booking) => (
-                <div key={booking.id} className="bg-white p-4 shadow rounded flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">
-                      {booking.pickupAddress?.address} → {booking.dropAddress?.address}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(booking.pickupDateTime).toLocaleString()} | {booking.vehicleType?.name} | {booking.TripType?.label}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {booking.fromCity?.name} → {booking.toCity?.name}
-                    </p>
-                    <p className="text-sm text-green-700 font-semibold">Fare: ₹{booking.fare}</p>
-                    <p className="text-sm text-yellow-600 font-medium">Status: {booking.status}</p>
-                  </div>
-                  <div className="space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedBooking(booking);
-                        setShowForm(true);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                    <Button variant="destructive" onClick={() => handleDelete(booking.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+        {filteredBookings.length === 0 ? (
+          <div className="p-4 text-gray-500">No bookings found.</div>
+        ) : (
+          filteredBookings.map((booking) => (
+            <div
+              key={booking.id}
+              className="p-4 border-t grid grid-cols-7 gap-2 items-center text-sm"
+            >
+              <div>
+                <div className="font-medium">{booking.customerName}</div>
+                <span
+                  className={`text-xs px-2 py-1 rounded-full ${
+                    booking.customerType === 'Corporate'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {booking.customerType}
+                </span>
+              </div>
+              <div>
+                🚗 {booking.vehicleType?.name}
+                <br />
+                👥 {booking.numVehicles} required
+              </div>
+              <div>
+                <span className="text-green-700">📍 {booking.pickupAddress?.address}</span>
+                <br />
+                <span className="text-red-700">📍 {booking.dropAddress?.address}</span>
+              </div>
+              <div>
+                🕒 {new Date(booking.pickupDateTime).toLocaleDateString()}
+                <br />
+                {new Date(booking.pickupDateTime).toLocaleTimeString()}
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
+                  {booking.vehiclesAssigned > 0
+                    ? `${booking.vehiclesAssigned} assigned`
+                    : 'Not Assigned'}
+                </span>
+                <Button
+                  variant={booking.vehiclesAssigned > 0 ? 'outline' : 'default'}
+                  size="sm"
+                  onClick={() => handleAssign(booking)}
+                >
+                  {booking.vehiclesAssigned > 0 ? 'Reassign' : 'Assign'}
+                </Button>
+              </div>
+              <div>
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    booking.status === 'Confirmed'
+                      ? 'bg-blue-100 text-blue-800'
+                      : booking.status === 'Completed'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {booking.status}
+                </span>
+              </div>
+              <div className="space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedBooking(booking);
+                    setShowForm(true);
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button variant="destructive" onClick={() => handleDelete(booking.id)}>
+                  Delete
+                </Button>
+              </div>
             </div>
-          )}
-        </TabsContent>
+          ))
+        )}
+      </div>
 
-        {/* CORPORATE TAB */}
-        <TabsContent value="corporate">
-          <div className="text-center py-8">
-            <Building className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Corporate Booking Requests</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Corporate booking requests will appear here for vendor review
-            </p>
-            <div className="mt-6">
-              <Button onClick={() => setShowCorporateForm(true)}>
-                <Plus className="mr-2 h-4 w-4" /> New Corporate Request
-              </Button>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+      {assignTarget && (
+        <AssignVehicleModal
+          open={assignModalOpen}
+          bookingId={assignTarget.bookingId}
+          vehicleTypeId={assignTarget.vehicleTypeId}
+          numVehicles={assignTarget.numVehicles}
+          onClose={() => setAssignModalOpen(false)}
+          onAssigned={loadBookings}
+        />
+      )}
 
       {showForm && (
         <BookingForm

@@ -41,6 +41,8 @@ const Sidebar = () => {
     { name: 'Drivers', href: '/dashboard/drivers', icon: Users },
     { name: 'Bookings', href: '/dashboard/bookings', icon: Calendar },
     { name: 'Trips', href: '/dashboard/trips', icon: MapPin },
+    { name: 'Invoices', href: '/dashboard/invoices', icon: FileText },
+    { name: 'Feedback', href: '/dashboard/feedback', icon: MessageSquare },
     { name: 'Earnings', href: '/dashboard/earnings', icon: BarChart3 },
   ];
 

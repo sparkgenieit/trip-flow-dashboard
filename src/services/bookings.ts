@@ -3,7 +3,6 @@ import axios from 'axios';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 export interface BookingPayload {
-  email: string;
   pickupLocation: string;
   dropoffLocation: string;
   pickupDateTime: string; // ISO string format for date
@@ -36,6 +35,7 @@ export const createBooking = async (payload: BookingPayload) => {
   return res.data;
 };
 
+
 export const updateBooking = async (id: number, payload: BookingPayload) => {
   const res = await axios.patch(`${BASE_URL}/bookings/${id}`, payload, authHeaders());
   return res.data;
@@ -46,10 +46,10 @@ export const deleteBooking = async (id: number) => {
   return res.data;
 };
 
-export const fetchUserByEmail = async (email: string) => {
+export const fetchUserByPhone = async (phone: string) => {
   const res = await axios.post(
-    `${BASE_URL}/admin/users/check-email`,
-    { email },
+    `${BASE_URL}/admin/users/check-phone`,
+    { phone },
     authHeaders(),
   );
   return res.data;

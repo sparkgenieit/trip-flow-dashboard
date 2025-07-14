@@ -47,6 +47,7 @@ interface VehicleFormProps {
 }
 
 const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
+
   const [formData, setFormData] = useState({
     vehicleNumber: '',
     type: '',
@@ -65,6 +66,8 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
     fetchVendors();
 
     if (vehicle) {
+      console.log('GOT from page', vehicle);
+
       setFormData({
         vehicleNumber: vehicle.registrationNumber || '',
         type: vehicle.model || '',
@@ -111,10 +114,10 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
       };
 
       if (vehicle?.id) {
-  await updateVehicle(vehicle.id, payload); // ✅ Edit case
-} else {
-  await createVehicle(payload);             // ✅ Create case
-}
+        await updateVehicle(vehicle.id, payload); // ✅ Edit case
+      } else {
+        await createVehicle(payload);             // ✅ Create case
+      }
 
 
       toast({
@@ -137,7 +140,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-[600px] px-6 py-4 overflow-visible">
         <DialogHeader>
           <DialogTitle>{vehicle ? 'Edit Vehicle' : 'Add New Vehicle'}</DialogTitle>
           <DialogDescription>
@@ -145,7 +148,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="max-h-[70vh] overflow-y-auto pr-2 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="vehicleNumber">Vehicle Number</Label>
             <Input
@@ -236,10 +239,10 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
               <SelectContent>
                 <SelectItem value="independent">Independent</SelectItem>
                 {vendors.map((vendor) => (
-                <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                  {vendor.companyName}
-                </SelectItem>
-              ))}
+                  <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                    {vendor.companyName}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

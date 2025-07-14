@@ -130,8 +130,8 @@ const fetchVendorsAndVehicles = async () => {
           </DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
+        <form onSubmit={handleSubmit} className="max-h-[70vh] overflow-y-auto pr-2 space-y-4">
+        <div className="space-y-4">
             <Label htmlFor="full_name">Full Name</Label>
             <Input
               id="full_name"
