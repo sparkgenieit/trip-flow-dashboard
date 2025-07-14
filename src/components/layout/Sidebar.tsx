@@ -22,6 +22,7 @@ const Sidebar = () => {
 
   const commonItems = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
+    { name: 'Feedback', href: '/dashboard/feedback', icon: MessageSquare },
   ];
 
   const adminItems = [

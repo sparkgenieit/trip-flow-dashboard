@@ -27,14 +27,20 @@ const authHeaders = () => {
 
 export const fetchBookings = async () => {
   const res = await axios.get(`${BASE_URL}/bookings`, authHeaders());
-  return res.data;
+
+  // ✅ Inject customerName from user.name
+  const bookings = res.data.map((booking: any) => ({
+    ...booking,
+    customerName: booking.user?.name || booking.user?.email || 'Unknown',
+  }));
+
+  return bookings;
 };
 
 export const createBooking = async (payload: BookingPayload) => {
   const res = await axios.post(`${BASE_URL}/bookings`, payload, authHeaders());
   return res.data;
 };
-
 
 export const updateBooking = async (id: number, payload: BookingPayload) => {
   const res = await axios.patch(`${BASE_URL}/bookings/${id}`, payload, authHeaders());

@@ -47,7 +47,6 @@ interface VehicleFormProps {
 }
 
 const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
-
   const [formData, setFormData] = useState({
     vehicleNumber: '',
     type: '',
@@ -62,19 +61,22 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  const role = localStorage.getItem('userRole');
+  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+
   useEffect(() => {
-    fetchVendors();
+    if (isAdmin) {
+      fetchVendors();
+    }
 
     if (vehicle) {
-      console.log('GOT from page', vehicle);
-
       setFormData({
         vehicleNumber: vehicle.registrationNumber || '',
         type: vehicle.model || '',
         comfortLevel: vehicle.comfortLevel?.toString() || '',
         ratePerKm: vehicle.price?.toString() || '',
         status: vehicle.status || 'available',
-        vendorId: vehicle.vendorId !== null ? vehicle.vendorId.toString() : 'independent',
+        vendorId: vehicle.vendorId !== null ? vehicle.vendorId.toString() : '',
         lastServicedDate: vehicle.lastServicedDate?.split('T')[0] || '',
       });
     }
@@ -82,7 +84,6 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
 
   const fetchVendors = async () => {
     try {
-      // Replace this with real API call if needed
       setVendors([
         { id: '1', companyName: 'City Taxi Corp' },
         { id: '2', companyName: 'Metro Transport' },
@@ -98,7 +99,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
     setLoading(true);
 
     try {
-      const payload = {
+      const payload: any = {
         name: formData.vehicleNumber,
         model: formData.type,
         image: '',
@@ -110,15 +111,17 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
         status: formData.status,
         lastServicedDate: formData.lastServicedDate || undefined,
         vehicleTypeId: 1,
-        vendorId: null,
       };
 
-      if (vehicle?.id) {
-        await updateVehicle(vehicle.id, payload); // ✅ Edit case
-      } else {
-        await createVehicle(payload);             // ✅ Create case
+      if (isAdmin && formData.vendorId) {
+        payload.vendorId = parseInt(formData.vendorId);
       }
 
+      if (vehicle?.id) {
+        await updateVehicle(vehicle.id, payload);
+      } else {
+        await createVehicle(payload);
+      }
 
       toast({
         title: 'Success',
@@ -225,27 +228,28 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="vendorId">Vendor</Label>
-            <Select
-              value={formData.vendorId}
-              onValueChange={(value) =>
-                setFormData({ ...formData, vendorId: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select vendor (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="independent">Independent</SelectItem>
-                {vendors.map((vendor) => (
-                  <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                    {vendor.companyName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {isAdmin && (
+            <div className="space-y-2">
+              <Label htmlFor="vendorId">Vendor</Label>
+              <Select
+                value={formData.vendorId}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, vendorId: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select vendor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vendors.map((vendor) => (
+                    <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                      {vendor.companyName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="lastServicedDate">Last Serviced Date</Label>
