@@ -30,6 +30,11 @@ export const fetchBookings = async () => {
   return res.data;
 };
 
+export const getBookingById = async (id: number) => {
+  const res = await axios.get(`${BASE_URL}/bookings/${id}`, authHeaders());
+  return res.data;
+};
+
 export const createBooking = async (payload: BookingPayload) => {
   const res = await axios.post(`${BASE_URL}/bookings`, payload, authHeaders());
   return res.data;

@@ -165,24 +165,27 @@ const BookingForm: React.FC<BookingFormProps> = ({
 
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (booking) {
-      setFormData((prev) => ({
-        ...prev,
-        pickupLocation: booking.pickupLocation || "",
-        dropoffLocation: booking.dropoffLocation || "",
-        pickupDateTime: booking.pickupDateTime?.slice(0, 16) || "",
-        bookingType: booking.bookingType || "individual",
-        vehicleType: String(booking.vehicleTypeId || ""),
-        estimatedCost: booking.estimatedCost?.toString() || "",
-        notes: booking.notes || "",
-        fromCity: String(booking.fromCityId || ""),
-        dropCity: String(booking.toCityId || ""),
-        tripType: String(booking.tripTypeId || ""),
-        stopCities: booking.stopCities || [],
-      }));
-    }
-  }, [booking]);
+ useEffect(() => {
+  if (booking) {
+    setFormData({
+      name: booking.user?.name || "",
+      phone: booking.user?.phone || "",
+      pickupLocation: booking.pickupAddress?.address || "",
+      dropoffLocation: booking.dropAddress?.address || "",
+      pickupDateTime: booking.pickupDateTime?.slice(0, 16) || "",
+      bookingType: booking.bookingType || "individual",
+      vehicleType: String(booking.vehicleTypeId || ""),
+      estimatedCost: booking.fare?.toFixed(2) || "",
+      notes: booking.notes || "",
+      fromCity: String(booking.fromCity?.id || ""),
+      dropCity: String(booking.toCity?.id || ""),
+      tripType: String(booking.tripTypeId || booking.TripType?.id || ""),
+      stopCities: booking.stopCities || [],
+      numPersons: booking.numPersons || 1,
+      numVehicles: booking.numVehicles || 1,
+    });
+  }
+}, [booking]);
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");

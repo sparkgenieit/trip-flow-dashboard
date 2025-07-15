@@ -7,6 +7,7 @@ import { Plus } from 'lucide-react';
 import BookingForm from '@/components/bookings/BookingForm';
 import CorporateBookingForm from '@/components/bookings/CorporateBookingForm';
 import AssignVehicleModal from '@/components/bookings/AssignVehicleModal';
+import { getBookingById } from '@/services/bookings';
 
 interface Booking {
   id: number;
@@ -192,14 +193,24 @@ const BookingsPage = () => {
               </div>
               <div className="space-x-2">
                 <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedBooking(booking);
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const fullBooking = await getBookingById(booking.id);
+                    setSelectedBooking(fullBooking);
                     setShowForm(true);
-                  }}
-                >
-                  Edit
-                </Button>
+                  } catch (err) {
+                    toast({
+                      title: "Error",
+                      description: "Could not fetch booking details",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                Edit
+              </Button>
+
                 <Button variant="destructive" onClick={() => handleDelete(booking.id)}>
                   Delete
                 </Button>
@@ -220,9 +231,10 @@ const BookingsPage = () => {
         />
       )}
 
-      {showForm && (
+      {showForm && selectedBooking && (
         <BookingForm
-          booking={selectedBooking ?? undefined}
+          key={selectedBooking.id}
+          booking={selectedBooking}
           onClose={() => {
             setShowForm(false);
             setSelectedBooking(null);
@@ -235,6 +247,7 @@ const BookingsPage = () => {
           }}
         />
       )}
+
 
       {showCorporateForm && (
         <CorporateBookingForm

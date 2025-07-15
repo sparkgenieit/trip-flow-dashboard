@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { fetchAllVendors } from '@/services/vendor';
 
 interface Vehicle {
   id: number;
@@ -37,8 +38,10 @@ interface Vehicle {
 }
 
 interface Vendor {
-  id: string;
-  companyName: string;
+  id: number;
+  name: string;
+  companyReg: string;
+  userId: number;
 }
 
 interface VehicleFormProps {
@@ -80,18 +83,19 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
     }
   }, [vehicle]);
 
-  const fetchVendors = async () => {
-    try {
-      // Replace this with real API call if needed
-      setVendors([
-        { id: '1', companyName: 'City Taxi Corp' },
-        { id: '2', companyName: 'Metro Transport' },
-        { id: '3', companyName: 'Quick Rides' },
-      ]);
-    } catch (error) {
-      console.error('Error fetching vendors:', error);
-    }
-  };
+ const fetchVendors = async () => {
+  try {
+    const res = await fetchAllVendors(); // real API call
+    setVendors(res || []);
+  } catch (error) {
+    console.error('Error fetching vendors:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to load vendors',
+      variant: 'destructive',
+    });
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,7 +114,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
         status: formData.status,
         lastServicedDate: formData.lastServicedDate || undefined,
         vehicleTypeId: 1,
-        vendorId: null,
+        vendorId: formData.vendorId === '' ? null : Number(formData.vendorId),
       };
 
       if (vehicle?.id) {
@@ -226,26 +230,31 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="vendorId">Vendor</Label>
-            <Select
-              value={formData.vendorId}
-              onValueChange={(value) =>
-                setFormData({ ...formData, vendorId: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select vendor (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="independent">Independent</SelectItem>
-                {vendors.map((vendor) => (
-                  <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                    {vendor.companyName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Label htmlFor="vendorId">Vendor</Label>
+          <Select
+            value={formData.vendorId || 'independent'}
+            onValueChange={(value) =>
+              setFormData({
+                ...formData,
+                vendorId: value === 'independent' ? '' : value,
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select vendor (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+            <SelectItem value="independent">Independent</SelectItem>
+            {vendors.map((vendor) => (
+              <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                {vendor.companyReg || vendor.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+
+          </Select>
+        </div>
+
 
           <div className="space-y-2">
             <Label htmlFor="lastServicedDate">Last Serviced Date</Label>
