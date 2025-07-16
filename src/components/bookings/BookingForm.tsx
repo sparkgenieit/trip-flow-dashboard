@@ -38,24 +38,25 @@ const BookingForm: React.FC<BookingFormProps> = ({
   onClose,
   onSuccess,
 }) => {
+  console.log(booking);
   const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    pickupLocation: "",
-    dropoffLocation: "",
-    pickupDateTime: "",
-    bookingType: "individual",
-    vehicleType: "",
-    estimatedCost: "",
-    notes: "",
-    fromCity: "",
-    dropCity: "",
-    tripType: "",
-    stopCities: [] as string[],
-    numPersons: 1,
-    numVehicles: 1,
+    name: booking?.user?.name || "",
+      phone: booking?.user?.phone || "",
+      pickupLocation: booking?.pickupAddress?.address || "",
+      dropoffLocation: booking?.dropAddress?.address || "",
+      pickupDateTime: booking?.pickupDateTime?.slice(0, 16) || "",
+      bookingType: booking?.bookingType || "individual",
+      vehicleType: String(booking?.vehicleTypeId || ""),
+      estimatedCost: booking?.fare?.toFixed(2) || "",
+      notes: booking?.notes || "",
+      fromCity: String(booking?.fromCity?.id || ""),
+      dropCity: String(booking?.toCity?.id || ""),
+      tripType: String(booking?.tripTypeId || booking?.TripType?.id || ""),
+      stopCities: booking?.stopCities || [],
+      numPersons: booking?.numPersons || 1,
+      numVehicles: booking?.numVehicles || 1,
   });
-
+  const isEditMode = !!booking;
   const [loading, setLoading] = useState(false);
   const [cities, setCities] = useState<any[]>([]);
   const [tripTypes, setTripTypes] = useState<any[]>([]);
@@ -165,24 +166,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
 
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (booking) {
-      setFormData((prev) => ({
-        ...prev,
-        pickupLocation: booking.pickupLocation || "",
-        dropoffLocation: booking.dropoffLocation || "",
-        pickupDateTime: booking.pickupDateTime?.slice(0, 16) || "",
-        bookingType: booking.bookingType || "individual",
-        vehicleType: String(booking.vehicleTypeId || ""),
-        estimatedCost: booking.estimatedCost?.toString() || "",
-        notes: booking.notes || "",
-        fromCity: String(booking.fromCityId || ""),
-        dropCity: String(booking.toCityId || ""),
-        tripType: String(booking.tripTypeId || ""),
-        stopCities: booking.stopCities || [],
-      }));
-    }
-  }, [booking]);
+ 
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");
@@ -387,29 +371,34 @@ const BookingForm: React.FC<BookingFormProps> = ({
           className="grid grid-cols-1 md:grid-cols-2 gap-4"
         >
           <div className="space-y-2 md:col-span-1">
-            <Label>Phone Number</Label>
-            <Input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) =>
-                setFormData({ ...formData, phone: e.target.value })
-              }
-              onBlur={handlePhoneBlur}
-              required
-            />
-          </div>
+          <Label>Phone Number</Label>
+          <Input
+            type="tel"
+            value={formData.phone}
+            onChange={(e) =>
+              setFormData({ ...formData, phone: e.target.value })
+            }
+            onBlur={handlePhoneBlur}
+            disabled={isEditMode}
+            className={isEditMode ? 'bg-gray-100 cursor-not-allowed' : ''}
+            required
+          />
+        </div>
 
-          <div className="space-y-2 md:col-span-1">
-            <Label>Name</Label>
-            <Input
-              type="text"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              required
-            />
-          </div>
+         <div className="space-y-2 md:col-span-1">
+          <Label>Name</Label>
+          <Input
+            type="text"
+            value={formData.name}
+            onChange={(e) =>
+              setFormData({ ...formData, name: e.target.value })
+            }
+            disabled={isEditMode}
+            className={isEditMode ? 'bg-gray-100 cursor-not-allowed' : ''}
+            required
+          />
+        </div>
+
 
           <div className="space-y-2">
             <Label>Trip Type</Label>

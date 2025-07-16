@@ -7,7 +7,15 @@ import { Plus, Search, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import VehicleForm from './VehicleForm';
 import VehicleDetailsModal from './VehicleDetailsModal'; // ✅ added for modal view
-import { getVehicles, deleteVehicle } from '@/services/vehicles'; // ✅ updated to include delete
+import { getVehicles, deleteVehicle } from '@/services/vehicles';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 interface Vehicle {
   id: number;
@@ -23,6 +31,10 @@ interface Vehicle {
   lastServicedDate: string;
   vehicleTypeId: number;
   vendorId: number | null;
+  vendor?: {
+    id: number;
+    companyName: string;
+  };
 }
 
 const VehiclesPage = () => {

@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { fetchAllVendors } from '@/services/vendor';
 
 interface Vehicle {
   id: number;
@@ -37,8 +38,10 @@ interface Vehicle {
 }
 
 interface Vendor {
-  id: string;
-  companyName: string;
+  id: number;
+  name: string;
+  companyReg: string;
+  userId: number;
 }
 
 interface VehicleFormProps {
@@ -82,24 +85,26 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
     }
   }, [vehicle]);
 
-  const fetchVendors = async () => {
-    try {
-      setVendors([
-        { id: '1', companyName: 'City Taxi Corp' },
-        { id: '2', companyName: 'Metro Transport' },
-        { id: '3', companyName: 'Quick Rides' },
-      ]);
-    } catch (error) {
-      console.error('Error fetching vendors:', error);
-    }
-  };
+ const fetchVendors = async () => {
+  try {
+    const res = await fetchAllVendors(); // real API call
+    setVendors(res || []);
+  } catch (error) {
+    console.error('Error fetching vendors:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to load vendors',
+      variant: 'destructive',
+    });
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const payload: any = {
+      const payload:any = {
         name: formData.vehicleNumber,
         model: formData.type,
         image: '',
@@ -243,7 +248,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
                 <SelectContent>
                   {vendors.map((vendor) => (
                     <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                      {vendor.companyName}
+                      {vendor.companyReg}
                     </SelectItem>
                   ))}
                 </SelectContent>

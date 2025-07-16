@@ -6,9 +6,13 @@ import { fetchQuotesForBooking, approveQuote } from '@/services/quotes';
 
 interface Quote {
   id: number;
-  vendorName: string;
   amount: number;
+  vendor: {
+    name: string;
+    companyReg: string;
+  };
 }
+
 
 interface Props {
   bookingId: number;
@@ -52,19 +56,33 @@ const VendorQuoteListModal: React.FC<Props> = ({ bookingId, open, onClose, onApp
           <DialogTitle>Vendor Quotes</DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
-          {quotes.length === 0 ? (
-            <p>No quotes submitted yet.</p>
-          ) : (
-            quotes.map((q) => (
-              <div key={q.id} className="flex justify-between items-center border p-2 rounded">
-                <div>
-                  <div className="font-medium">{q.vendorName}</div>
-                  <div className="text-sm text-gray-500">₹ {q.amount}</div>
-                </div>
-                <Button onClick={() => handleApprove(q.id)}>Approve</Button>
-              </div>
-            ))
-          )}
+{quotes.length === 0 ? (
+  <p>No quotes submitted yet.</p>
+) : (
+  <>
+    {quotes.map((q) => (
+      <div
+        key={q.id}
+        className="flex justify-between items-center border p-3 rounded gap-4"
+      >
+        {/* LEFT: Vendor Details */}
+        <div className="flex flex-col">
+          <div className="font-medium text-gray-900">{q.vendor.companyReg}</div>
+          <div className="text-sm text-gray-500">By {q.vendor.name}</div>
+        </div>
+
+        {/* CENTER: Quote Amount */}
+        <div className="text-lg font-semibold text-gray-800 whitespace-nowrap">
+          ₹ {q.amount}
+        </div>
+
+        {/* RIGHT: Approve Button */}
+        <Button onClick={() => handleApprove(q.id)}>Approve</Button>
+      </div>
+    ))}
+  </>
+)}
+
         </div>
       </DialogContent>
     </Dialog>
