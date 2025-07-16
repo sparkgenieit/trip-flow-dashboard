@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, Download, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getInvoices } from '@/services/invoice';
+
 
 interface Invoice {
   id: string;
@@ -40,93 +42,22 @@ const InvoicesPage = () => {
     fetchInvoices();
   }, []);
 
-  const fetchInvoices = async () => {
-    try {
-      // Mock data to avoid Supabase errors
-      const mockInvoices = [
-        {
-          id: '1',
-          invoice_number: 'INV-2024-001',
-          subtotal: 250.00,
-          vendor_commission: 25.00,
-          admin_commission: 12.50,
-          total_amount: 287.50,
-          pdf_url: '',
-          created_at: '2024-01-15T10:30:00Z',
-          profiles: {
-            full_name: 'Alice Johnson'
-          },
-          vendors: {
-            company_name: 'City Taxi Corp'
-          },
-          trips: {
-            bookings: {
-              pickup_location: 'Airport Terminal 1',
-              dropoff_location: 'Downtown Hotel'
-            }
-          }
-        },
-        {
-          id: '2',
-          invoice_number: 'INV-2024-002',
-          subtotal: 180.00,
-          vendor_commission: 18.00,
-          admin_commission: 9.00,
-          total_amount: 207.00,
-          pdf_url: '',
-          created_at: '2024-01-14T14:15:00Z',
-          profiles: {
-            full_name: 'Bob Wilson'
-          },
-          vendors: {
-            company_name: 'Metro Transport'
-          },
-          trips: {
-            bookings: {
-              pickup_location: 'City Mall',
-              dropoff_location: 'Residential Area'
-            }
-          }
-        },
-        {
-          id: '3',
-          invoice_number: 'INV-2024-003',
-          subtotal: 320.00,
-          vendor_commission: 32.00,
-          admin_commission: 16.00,
-          total_amount: 368.00,
-          pdf_url: '',
-          created_at: '2024-01-13T09:45:00Z',
-          profiles: {
-            full_name: 'Carol Davis'
-          },
-          vendors: {
-            company_name: 'Quick Rides'
-          },
-          trips: {
-            bookings: {
-              pickup_location: 'Business District',
-              dropoff_location: 'Conference Center'
-            }
-          }
-        }
-      ];
-      setInvoices(mockInvoices);
-      toast({
-        title: "Info",
-        description: "Using demo data (Supabase connection disabled)",
-      });
-    } catch (error) {
-      console.error('Error fetching invoices:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch invoices",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+ const fetchInvoices = async () => {
+  try {
+    const data = await getInvoices();
+    setInvoices(data);
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to fetch invoices',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const filteredInvoices = invoices.filter(invoice =>
     invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||

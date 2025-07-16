@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getFeedback } from '../../services/feedback';
 import FeedbackForm, { FeedbackFormData } from '@/components/feedback/FeedbackForm'; // ✅ Added
 
+
 interface Feedback {
   id: number;
   tripId: number;
@@ -211,4 +212,4 @@ const FeedbackPage = () => {
   );
 };
 
-export default FeedbackPage;
+export default FeedbackPage;

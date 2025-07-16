@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL + '/admin/feedback';
+const API_BASE = import.meta.env.VITE_API_BASE_URL + '/feedback';
 
 
 // ✅ Feedback interface (optional here if already in types/feedback.ts)
