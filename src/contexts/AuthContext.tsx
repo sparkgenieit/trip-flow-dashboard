@@ -36,6 +36,9 @@ export const useAuth = () => {
 interface DecodedToken {
   email: string;
   role: string;
+  vendorId?: number;
+  riderId?: number;
+  driverId?: number;
   exp?: number;
 }
 
@@ -84,6 +87,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       }
 
       localStorage.setItem("authToken", access_token);
+      localStorage.setItem("userEmail", decoded.email);
+      localStorage.setItem("userRole", decoded.role);
+
+      if (decoded.vendorId) {
+        localStorage.setItem("vendorId", decoded.vendorId.toString());
+      }
+
+      if (decoded.riderId) {
+        localStorage.setItem("riderId", decoded.riderId.toString());
+      }
+
+      if (decoded.driverId) {
+        localStorage.setItem("driverId", decoded.driverId.toString());
+      }
+
       setUser({ email: decoded.email, role: decoded.role });
 
       toast({ title: "Success", description: "Signed in successfully" });
@@ -101,6 +119,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const signOut = async () => {
     localStorage.removeItem("authToken");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("vendorId");
+    localStorage.removeItem("riderId");
+    localStorage.removeItem("driverId");
+
     setUser(null);
     toast({ title: "Success", description: "Signed out successfully" });
   };

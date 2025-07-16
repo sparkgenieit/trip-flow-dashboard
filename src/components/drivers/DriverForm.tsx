@@ -32,6 +32,8 @@ interface DriverFormProps {
 }
 
 const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
+  const isVendor = localStorage.getItem('userRole') === 'VENDOR';
+
   const [formData, setFormData] = useState<DriverFormInput>({
   fullName: '',
   phone: '',
@@ -184,29 +186,33 @@ const fetchVendorsAndVehicles = async () => {
             />
           </div>
 
-          <div className="space-y-2">
-  <Label htmlFor="vendor_id">Vendor</Label>
-  <Select
-  value={formData.vendorId !== undefined ? String(formData.vendorId) : 'unassigned'}
-  onValueChange={(value) =>
-    setFormData({
-      ...formData,
-      vendorId: value === 'unassigned' ? undefined : Number(value),
-    })
-  }>
-    <SelectTrigger>
-      <SelectValue placeholder="Select vendor (optional)" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="unassigned">No vendor assigned</SelectItem> {/* ✅ Safe fallback value */}
-      {vendors.map((vendor: any) => (
-        <SelectItem key={vendor.id} value={vendor.id.toString()}>
-          {vendor.companyReg || vendor.name}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
+   {!isVendor && (
+  <div className="space-y-2">
+    <Label htmlFor="vendor_id">Vendor</Label>
+    <Select
+      value={formData.vendorId !== undefined ? String(formData.vendorId) : 'unassigned'}
+      onValueChange={(value) =>
+        setFormData({
+          ...formData,
+          vendorId: value === 'unassigned' ? undefined : Number(value),
+        })
+      }
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select vendor (optional)" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="unassigned">No vendor assigned</SelectItem>
+        {vendors.map((vendor: any) => (
+          <SelectItem key={vendor.id} value={vendor.id.toString()}>
+            {vendor.companyReg || vendor.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+)}
+
 
 
           {/* 🔁 REPLACE THIS BLOCK: Assigned Vehicle Select */}

@@ -3,20 +3,27 @@ import axios from 'axios';
 const API_BASE = import.meta.env.VITE_API_BASE_URL + '/drivers';
 
 export interface DriverCreateInput {
-  name: string;
+  fullName: string;
   phone: string;
   email: string;
   licenseNumber: string;
-  license_expiry: string;
-  is_part_time?: boolean;
-  is_available?: boolean;
-  vendor_id: string;
-  assigned_vehicle_id?: string;
+  licenseExpiry: string; // or Date
+  isPartTime?: boolean;
+  isAvailable?: boolean;
+  vendorId?: number;
+  assignedVehicleId?: number;
+  userId?: number;
 }
 
-// ✅ Create driver with token
+// ✅ Create driver with token (update here)
 export const createDriver = async (data: DriverCreateInput) => {
   const token = localStorage.getItem('authToken');
+
+  const userRole = localStorage.getItem('userRole'); // 🟡 Ensure you store this at login
+  if (userRole === 'VENDOR') {
+    delete data.vendorId; // ✅ Let backend extract vendorId from token
+  }
+
   return await axios.post(API_BASE, data, {
     headers: {
       Authorization: `Bearer ${token}`,

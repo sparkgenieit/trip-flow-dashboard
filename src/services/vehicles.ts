@@ -78,12 +78,12 @@ export const getAvailableVehicles = async (vehicleTypeId: number) => {
 // ✅ Assign vehicles to a booking
 export const assignVehicleToBooking = async (
   bookingId: number,
-  vehicleIds: string[]
+  vehicleIds: number[]
 ) => {
   const token = localStorage.getItem('authToken');
   return await axios.post(
-    `${import.meta.env.VITE_API_BASE_URL}/bookings/${bookingId}/assign-vehicles`,
-    { vehicleIds },
+    `${import.meta.env.VITE_API_BASE_URL}/trips`,
+    { bookingId,vehicleIds },
     {
       headers: {
         Authorization: `Bearer ${token}`,
