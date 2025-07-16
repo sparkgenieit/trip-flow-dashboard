@@ -7,7 +7,9 @@ import { Plus } from 'lucide-react';
 import BookingForm from '@/components/bookings/BookingForm';
 import CorporateBookingForm from '@/components/bookings/CorporateBookingForm';
 import AssignVehicleModal from '@/components/bookings/AssignVehicleModal';
-
+import VendorQuoteListModal from '@/components/bookings/VendorQuoteListModal';
+import { shareBookingWithVendors, fetchQuotesForBooking } from '@/services/quotes';
+import { useNavigate } from 'react-router-dom';
 interface Booking {
   id: number;
   fare: number;
@@ -26,6 +28,7 @@ interface Booking {
 }
 
 const BookingsPage = () => {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -33,6 +36,8 @@ const BookingsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [quoteModalOpen, setQuoteModalOpen] = useState(false);
+  const [quoteBookingId, setQuoteBookingId] = useState<number | null>(null);
   const [assignTarget, setAssignTarget] = useState<{
     bookingId: number;
     vehicleTypeId: number;
@@ -71,13 +76,23 @@ const BookingsPage = () => {
     }
   };
 
-  const handleAssign = (booking: Booking) => {
-    setAssignTarget({
-      bookingId: booking.id,
-      vehicleTypeId: booking.vehicleType?.id,
-      numVehicles: booking.numVehicles,
-    });
-    setAssignModalOpen(true);
+  const handleAssign = async (booking: Booking) => {
+    try {
+      const quotes = await fetchQuotesForBooking(booking.id);
+      const approved = quotes.find((q: any) => q.approved);
+      if (!approved) {
+        toast({ title: 'Cannot assign', description: 'No quote approved yet', variant: 'destructive' });
+        return;
+      }
+      setAssignTarget({
+        bookingId: booking.id,
+        vehicleTypeId: booking.vehicleType?.id,
+        numVehicles: booking.numVehicles,
+      });
+      setAssignModalOpen(true);
+    } catch {
+      toast({ title: 'Error', description: 'Failed to check quotes', variant: 'destructive' });
+    }
   };
 
   const filteredBookings = bookings.filter((b) =>
@@ -139,11 +154,10 @@ const BookingsPage = () => {
               <div>
                 <div className="font-medium">{booking.customerName}</div>
                 <span
-                  className={`text-xs px-2 py-1 rounded-full ${
-                    booking.customerType === 'Corporate'
+                  className={`text-xs px-2 py-1 rounded-full ${booking.customerType === 'Corporate'
                       ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-800'
-                  }`}
+                    }`}
                 >
                   {booking.customerType}
                 </span>
@@ -179,18 +193,23 @@ const BookingsPage = () => {
               </div>
               <div>
                 <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
-                    booking.status === 'Confirmed'
+                  className={`px-2 py-1 rounded text-xs font-medium ${booking.status === 'Confirmed'
                       ? 'bg-blue-100 text-blue-800'
                       : booking.status === 'Completed'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
                 >
                   {booking.status}
                 </span>
               </div>
               <div className="space-x-2">
+                <Button
+                  variant="default"
+                  onClick={() => navigate(`/dashboard/bookings/view/?bookingId=${booking.id}`)}
+                >
+                  View
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -199,6 +218,18 @@ const BookingsPage = () => {
                   }}
                 >
                   Edit
+                </Button>
+                <Button variant="secondary" onClick={async () => {
+                  await shareBookingWithVendors(booking.id);
+                  toast({ title: 'Shared with vendors' });
+                }}>
+                  📤 Share
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  setQuoteBookingId(booking.id);
+                  setQuoteModalOpen(true);
+                }}>
+                  💬 Quotes
                 </Button>
                 <Button variant="destructive" onClick={() => handleDelete(booking.id)}>
                   Delete
@@ -233,6 +264,15 @@ const BookingsPage = () => {
             setSelectedBooking(null);
             loadBookings();
           }}
+        />
+      )}
+
+      {quoteBookingId !== null && (
+        <VendorQuoteListModal
+          bookingId={quoteBookingId}
+          open={quoteModalOpen}
+          onClose={() => setQuoteModalOpen(false)}
+          onApproved={loadBookings}
         />
       )}
 

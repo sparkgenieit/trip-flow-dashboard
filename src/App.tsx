@@ -25,6 +25,7 @@ import CorporateDashboard from "@/components/corporate/CorporateDashboard";
 import AdminVehiclesPage from "@/pages/admin/VehiclesPage";
 import VendorVehiclesPage from "@/pages/vendor/VehiclesPage";
 import DriverVehiclesPage from "@/pages/driver/VehiclesPage";
+import ViewBooking from "@/components/bookings/ViewBooking";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="vehicles" element={<VehiclesPage />} />
               <Route path="vendors" element={<VendorsPage />} />
               <Route path="bookings" element={<BookingsPage />} />
+              <Route path="bookings/view" element={<ViewBooking />} />
               <Route path="trips" element={<TripsPage />} />
               <Route path="invoices" element={<InvoicesPage />} />
               <Route path="feedback" element={<FeedbackPage />} />
