@@ -53,3 +53,9 @@ export const deleteInvoice = async (id: number) => {
   const res = await axios.delete(`${API_BASE}/${id}`, authHeaders());
   return res.data;
 };
+
+// ✅ POST /invoice/generate/:tripId
+export const generateInvoice = async (tripId: number) => {
+  const res = await axios.post(`${API_BASE}/generate/${tripId}`, null, authHeaders());
+  return res.data;
+};

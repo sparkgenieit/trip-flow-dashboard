@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, Download, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getInvoices } from '@/services/invoice';
+import { getInvoices, generateInvoice } from '@/services/invoice';
 
 
 interface Invoice {
@@ -42,6 +42,28 @@ const InvoicesPage = () => {
     fetchInvoices();
   }, []);
 
+  const handleGenerateInvoice = async () => {
+  try {
+    const tripId = prompt('Enter Trip ID to generate invoice for:');
+    if (!tripId) return;
+
+    const newInvoice = await generateInvoice(Number(tripId));
+    toast({
+      title: 'Success',
+      description: `Invoice ${newInvoice.invoiceNumber} generated.`,
+    });
+
+    fetchInvoices(); // Refresh list after generation
+  } catch (error) {
+    console.error('Error generating invoice:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to generate invoice',
+      variant: 'destructive',
+    });
+  }
+};
+
  const fetchInvoices = async () => {
   try {
     const data = await getInvoices();
@@ -75,7 +97,7 @@ const InvoicesPage = () => {
           <h2 className="text-3xl font-bold tracking-tight">Invoices</h2>
           <p className="text-muted-foreground">Manage billing and payments</p>
         </div>
-        <Button>
+        <Button onClick={handleGenerateInvoice} >
           <FileText className="mr-2 h-4 w-4" />
           Generate Invoice
         </Button>
