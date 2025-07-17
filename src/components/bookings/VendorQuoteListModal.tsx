@@ -7,6 +7,7 @@ import { fetchQuotesForBooking, approveQuote } from '@/services/quotes';
 interface Quote {
   id: number;
   amount: number;
+  approved: boolean;
   vendor: {
     name: string;
     companyReg: string;
@@ -55,35 +56,48 @@ const VendorQuoteListModal: React.FC<Props> = ({ bookingId, open, onClose, onApp
         <DialogHeader>
           <DialogTitle>Vendor Quotes</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
-{quotes.length === 0 ? (
-  <p>No quotes submitted yet.</p>
-) : (
-  <>
-    {quotes.map((q) => (
-      <div
-        key={q.id}
-        className="flex justify-between items-center border p-3 rounded gap-4"
-      >
-        {/* LEFT: Vendor Details */}
-        <div className="flex flex-col">
-          <div className="font-medium text-gray-900">{q.vendor.companyReg}</div>
-          <div className="text-sm text-gray-500">By {q.vendor.name}</div>
-        </div>
+       <div className="space-y-2">
+  {quotes.length === 0 ? (
+    <p>No quotes submitted yet.</p>
+  ) : (
+    <>
+      {(() => {
+        const approvedQuote = quotes.find((q) => (q as any).approved); // <- adjust type if needed
+        const visibleQuotes = approvedQuote ? [approvedQuote] : quotes;
 
-        {/* CENTER: Quote Amount */}
-        <div className="text-lg font-semibold text-gray-800 whitespace-nowrap">
-          ₹ {q.amount}
-        </div>
+        return visibleQuotes.map((q) => (
+          <div
+            key={q.id}
+            className={`flex justify-between items-center border p-3 rounded gap-4 ${
+              (q as any).approved ? 'bg-green-100 border-green-500' : ''
+            }`}
+          >
+            {/* LEFT: Vendor Details */}
+            <div className="flex flex-col">
+              <div className="font-medium text-gray-900">{q.vendor.companyReg}</div>
+              <div className="text-sm text-gray-500">By {q.vendor.name}</div>
+            </div>
 
-        {/* RIGHT: Approve Button */}
-        <Button onClick={() => handleApprove(q.id)}>Approve</Button>
-      </div>
-    ))}
-  </>
-)}
+            {/* CENTER: Quote Amount */}
+            <div className="text-lg font-semibold text-gray-800 whitespace-nowrap">
+              ₹ {q.amount}
+            </div>
 
-        </div>
+            {/* RIGHT: Approve or Badge */}
+            {(q as any).approved ? (
+              <span className="text-green-700 font-medium text-sm px-3 py-1 rounded bg-green-200">
+                ✔ Approved
+              </span>
+            ) : (
+              <Button onClick={() => handleApprove(q.id)}>Approve</Button>
+            )}
+          </div>
+        ));
+      })()}
+    </>
+  )}
+</div>
+
       </DialogContent>
     </Dialog>
   );
