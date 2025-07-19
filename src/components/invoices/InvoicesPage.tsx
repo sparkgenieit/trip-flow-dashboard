@@ -10,24 +10,28 @@ import { getInvoices, generateInvoice } from '@/services/invoice';
 
 
 interface Invoice {
-  id: string;
-  invoice_number: string;
+  id: number;
+  invoiceNumber: string;
   subtotal: number;
-  vendor_commission: number;
-  admin_commission: number;
-  total_amount: number;
-  pdf_url: string;
-  created_at: string;
-  profiles: {
-    full_name: string;
+  vendorCommission: number;
+  adminCommission: number;
+  totalAmount: number;
+  pdfUrl: string;
+  createdAt: string;
+  user: {
+    name: string;
   };
-  vendors: {
-    company_name: string;
+  vendor: {
+    name: string;
   };
-  trips: {
-    bookings: {
-      pickup_location: string;
-      dropoff_location: string;
+  trip: {
+    booking: {
+      pickupAddress: {
+        address: string;
+      };
+      dropAddress: {
+        address: string;
+      };
     };
   };
 }
@@ -79,11 +83,35 @@ const InvoicesPage = () => {
     setLoading(false);
   }
 };
+  
+   const handleDownloadPdf = async (invoice: Invoice) => {
+  try {
+    const response = await fetch(invoice.pdfUrl);
+    if (!response.ok) throw new Error('Failed to download');
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${invoice.invoiceNumber}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: 'Failed to download PDF',
+      variant: 'destructive',
+    });
+    console.error('PDF download error:', error);
+  }
+};
 
 
   const filteredInvoices = invoices.filter(invoice =>
-    invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    invoice.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -97,10 +125,7 @@ const InvoicesPage = () => {
           <h2 className="text-3xl font-bold tracking-tight">Invoices</h2>
           <p className="text-muted-foreground">Manage billing and payments</p>
         </div>
-        <Button onClick={handleGenerateInvoice} >
-          <FileText className="mr-2 h-4 w-4" />
-          Generate Invoice
-        </Button>
+        
       </div>
 
       <div className="flex items-center space-x-4">
@@ -125,15 +150,15 @@ const InvoicesPage = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg">{invoice.invoice_number}</CardTitle>
+                  <CardTitle className="text-lg">{invoice.invoiceNumber}</CardTitle>
                   <CardDescription>
-                    {invoice.profiles?.full_name || 'Unknown Customer'}
+                    {invoice.user?.name || 'Unknown Customer'}
                   </CardDescription>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold">₹{invoice.total_amount}</div>
+                  <div className="text-2xl font-bold">₹{invoice.totalAmount}</div>
                   <div className="text-sm text-muted-foreground">
-                    {new Date(invoice.created_at).toLocaleDateString()}
+                    {new Date(invoice.createdAt).toLocaleDateString()}
                   </div>
                 </div>
               </div>
@@ -146,39 +171,40 @@ const InvoicesPage = () => {
                 </div>
                 <div>
                   <span className="font-medium">Vendor Commission:</span>
-                  <p>₹{invoice.vendor_commission || 0}</p>
+                  <p>₹{invoice.vendorCommission || 0}</p>
                 </div>
                 <div>
                   <span className="font-medium">Admin Commission:</span>
-                  <p>₹{invoice.admin_commission || 0}</p>
+                  <p>₹{invoice.adminCommission || 0}</p>
                 </div>
                 <div>
                   <span className="font-medium">Vendor:</span>
-                  <p>{invoice.vendors?.company_name || 'Independent'}</p>
+                  <p>{invoice.vendor?.name|| 'Independent'}</p>
                 </div>
               </div>
               
-              {invoice.trips?.bookings && (
+              {invoice.trip?.booking && (
                 <div className="mt-4 pt-4 border-t">
                   <span className="font-medium text-sm">Trip:</span>
                   <p className="text-sm text-muted-foreground">
-                    {invoice.trips.bookings.pickup_location} → {invoice.trips.bookings.dropoff_location}
+                    {invoice.trip.booking.pickupAddress.address} → {invoice.trip.booking.dropAddress.address}
                   </p>
                 </div>
               )}
 
               <div className="mt-4 flex space-x-2">
-                <Button size="sm" variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Download PDF
-                </Button>
-                <Button size="sm" variant="outline">
-                  Send Email
-                </Button>
-                <Button size="sm" variant="outline">
-                  View Details
-                </Button>
-              </div>
+  <Button size="sm" variant="outline" onClick={() => handleDownloadPdf(invoice)}>
+    <Download className="mr-2 h-4 w-4" />
+    Download PDF
+  </Button>
+  <Button size="sm" variant="outline">
+    Send Email
+  </Button>
+  <Button size="sm" variant="outline">
+    View Details
+          </Button>
+           </div>
+
             </CardContent>
           </Card>
         ))}
