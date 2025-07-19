@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, MapPin, Clock, AlertTriangle, Phone, MapIcon } from 'lucide-react';
+import { generateInvoice } from '@/services/invoice'; // ✅ Add this
 import { useToast } from '@/hooks/use-toast';
 import { getTrips } from '@/services/trip';
 import FeedbackForm, { FeedbackFormData } from './FeedbackForm';
@@ -122,6 +123,31 @@ const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
       description: 'Connecting you with the driver...',
     });
   };
+
+  const handleGenerateInvoiceForTrip = async (tripId?: number) => {
+  try {
+    const enteredTripId = tripId ?? Number(prompt('Enter Trip ID to generate invoice for:'));
+    if (!enteredTripId) return;
+
+    const invoice = await generateInvoice(enteredTripId);
+    toast({
+      title: 'Success',
+      description: `Invoice ${invoice.invoiceNumber} generated.`,
+    });
+
+    // Optional: refetch trips to reflect updated invoice data
+    fetchTrips();
+  } catch (error) {
+    console.error('Error generating invoice:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to generate invoice',
+      variant: 'destructive',
+    });
+  }
+};
+
+
 
   const filteredTrips = trips.filter((trip) =>
     trip.booking?.pickupAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -253,11 +279,19 @@ const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
                 </Button>
                 <Button
                  size="sm"
-                  variant="default"
+                  variant="outline"
                   onClick={() => setFeedbackTrip(trip)}
                 >
                    Feedback
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleGenerateInvoiceForTrip(trip.id)}
+                  >
+                    Generate Invoice
+                  </Button>
+
               </div>
             </CardContent>
           </Card>
