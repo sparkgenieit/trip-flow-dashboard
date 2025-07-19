@@ -35,6 +35,7 @@ interface Vehicle {
   lastServicedDate: string;
   vehicleTypeId: number;
   vendorId: number | null;
+  vendor?: Vendor; // ✅ Add this line
 }
 
 interface Vendor {
@@ -66,23 +67,30 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
 
   const role = localStorage.getItem('userRole');
   const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const isVendor =  role === 'VENDOR';
 
   useEffect(() => {
     if (isAdmin) {
       fetchVendors();
     }
 
-    if (vehicle) {
-      setFormData({
-        vehicleNumber: vehicle.registrationNumber || '',
-        type: vehicle.model || '',
-        comfortLevel: vehicle.comfortLevel?.toString() || '',
-        ratePerKm: vehicle.price?.toString() || '',
-        status: vehicle.status || 'available',
-        vendorId: vehicle.vendorId !== null ? vehicle.vendorId.toString() : '',
-        lastServicedDate: vehicle.lastServicedDate?.split('T')[0] || '',
-      });
-    }
+if (vehicle) {
+  setFormData({
+    vehicleNumber: vehicle.registrationNumber ?? '',
+    type: vehicle.model ?? '',
+    comfortLevel: vehicle.comfortLevel?.toString() ?? '',
+    ratePerKm: vehicle.price?.toString() ?? '',
+    status: vehicle.status ?? 'available',
+    vendorId: (
+      vehicle.vendorId ??
+      vehicle.vendor?.id ??
+      ''
+    ).toString(),
+    lastServicedDate: vehicle.lastServicedDate
+      ? vehicle.lastServicedDate.split('T')[0]
+      : '',
+  });
+}
   }, [vehicle]);
 
  const fetchVendors = async () => {
