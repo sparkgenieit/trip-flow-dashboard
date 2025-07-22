@@ -65,3 +65,10 @@ export const fetchUserByPhone = async (phone: string) => {
   );
   return res.data;
 };
+
+export async function confirmBookingIfAssigned(id: number) {
+  const res = await axios.patch(`${BASE_URL}/bookings/${id}/confirm-if-assigned`, {}, authHeaders());
+  return res.data;
+}
+
+

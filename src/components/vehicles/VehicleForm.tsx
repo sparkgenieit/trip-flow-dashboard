@@ -62,6 +62,8 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   });
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -107,52 +109,58 @@ if (vehicle) {
   }
 };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-      const payload:any = {
-        name: formData.vehicleNumber,
-        model: formData.type,
-        image: '',
-        capacity: 4,
-        registrationNumber: formData.vehicleNumber,
-        price: parseFloat(formData.ratePerKm),
-        originalPrice: parseFloat(formData.ratePerKm),
-        comfortLevel: parseInt(formData.comfortLevel),
-        status: formData.status,
-        lastServicedDate: formData.lastServicedDate || undefined,
-        vehicleTypeId: 1,
-      };
+  try {
+   const formDataToSend = new FormData();
+  formDataToSend.append('name', formData.vehicleNumber);
+  formDataToSend.append('model', formData.type);
+  formDataToSend.append('registrationNumber', formData.vehicleNumber);
+  formDataToSend.append('capacity', String(4));
+  formDataToSend.append('price', String(formData.ratePerKm));
+  formDataToSend.append('originalPrice', String(formData.ratePerKm));
+  formDataToSend.append('comfortLevel', String(formData.comfortLevel));
+  formDataToSend.append('status', String(formData.status));
+  formDataToSend.append('lastServicedDate', formData.lastServicedDate || '');
+  formDataToSend.append('vehicleTypeId', String(1));
 
-      if (isAdmin && formData.vendorId) {
-        payload.vendorId = parseInt(formData.vendorId);
-      }
 
-      if (vehicle?.id) {
-        await updateVehicle(vehicle.id, payload);
-      } else {
-        await createVehicle(payload);
-      }
 
-      toast({
-        title: 'Success',
-        description: vehicle ? 'Vehicle updated successfully' : 'Vehicle created successfully',
-      });
+if (isAdmin && formData.vendorId) {
+  formDataToSend.append('vendorId', String(formData.vendorId));
+}
 
-      onClose();
-    } catch (error) {
-      console.error('Error saving vehicle:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save vehicle',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
+// ✅ PLACE THIS HERE
+imageFiles.forEach((file) => {
+  formDataToSend.append('images', file);
+});
+
+    if (vehicle?.id) {
+      await updateVehicle(vehicle.id, formDataToSend);
+    } else {
+      await createVehicle(formDataToSend);
     }
-  };
+
+    toast({
+      title: 'Success',
+      description: vehicle ? 'Vehicle updated successfully' : 'Vehicle created successfully',
+    });
+
+    onClose();
+  } catch (error) {
+    console.error('Error saving vehicle:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to save vehicle',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -222,6 +230,33 @@ if (vehicle) {
               }
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="images">Vehicle Images</Label>
+            <Input
+              id="images"
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                setImageFiles(files);
+                setImagePreviews(files.map(file => URL.createObjectURL(file)));
+              }}
+            />
+            {imagePreviews.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {imagePreviews.map((src, idx) => (
+                  <img
+                    key={idx}
+                    src={src}
+                    alt={`preview-${idx}`}
+                    className="w-24 h-24 object-cover border rounded"
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
