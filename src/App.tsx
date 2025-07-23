@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 
 import Index from "./pages/Index";
@@ -26,6 +26,10 @@ import AdminVehiclesPage from "@/pages/admin/VehiclesPage";
 import VendorVehiclesPage from "@/pages/vendor/VehiclesPage";
 import DriverVehiclesPage from "@/pages/driver/VehiclesPage";
 import ViewBooking from "@/components/bookings/ViewBooking";
+import ProfilePage from "@/components/Profile/ProfilePage";
+import ChangePasswordPage from "@/components/Profile/ChangePasswordPage";
+import AddressBookPage from "@/components/Profile/AddressBookPage"; // ✅ Add this import
+
 
 const queryClient = new QueryClient();
 
@@ -48,6 +52,10 @@ const App = () => (
                 </ProtectedRoute>
               }
             >
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="change-password" element={<ChangePasswordPage />} />
+              <Route path="address-book" element={<AddressBookPage />} /> {/* ✅ NEW */}
+              
               <Route index element={<DashboardOverview />} />
               <Route path="drivers" element={<DriversPage />} />
               <Route path="vehicles" element={<VehiclesPage />} />

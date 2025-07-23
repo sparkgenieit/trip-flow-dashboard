@@ -11,6 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 interface User {
   email: string;
   role: string;
+  name?: string;
+  phone?: string;
+  age?: number;
+  gender?: string;
 }
 
 interface AuthContextType {

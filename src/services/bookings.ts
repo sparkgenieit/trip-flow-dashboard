@@ -59,7 +59,7 @@ export const deleteBooking = async (id: number) => {
 
 export const fetchUserByPhone = async (phone: string) => {
   const res = await axios.post(
-    `${BASE_URL}/admin/users/check-phone`,
+    `${BASE_URL}/users/check-phone`,
     { phone },
     authHeaders(),
   );

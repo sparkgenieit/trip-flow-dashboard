@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React ,{ useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,14 +13,17 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Bell, LogOut, User } from 'lucide-react';
 
+
 const Header = () => {
   const { user, signOut } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const getInitials = (email: string) => {
     return email.substring(0, 2).toUpperCase();
   };
 
   return (
+    <>
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       <div className="flex items-center">
         <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
@@ -51,7 +54,7 @@ const Header = () => {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setProfileOpen(true)}>
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>
@@ -63,6 +66,9 @@ const Header = () => {
         </DropdownMenu>
       </div>
     </header>
+   
+  
+    </>
   );
 };
 
