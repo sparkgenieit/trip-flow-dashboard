@@ -292,6 +292,7 @@ const BookingsPage = () => {
           open={quoteModalOpen}
           onClose={() => setQuoteModalOpen(false)}
           onApproved={loadBookings}
+          isAdmin={isAdmin} 
         />
       )}
 
