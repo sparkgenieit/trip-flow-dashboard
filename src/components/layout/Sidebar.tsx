@@ -21,7 +21,7 @@ const Sidebar = () => {
   const { isAdmin, isVendor, isDriver,isRider } = useAuth();
 
   const commonItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },  
+    { name: 'Dashboard', href: '/dashboard', icon: Home },
   ];
 
   const adminItems = [

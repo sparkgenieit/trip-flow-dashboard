@@ -18,22 +18,24 @@ interface VehicleCreateInput {
 }
 
 // ✅ Create vehicle with token-based authorization
-export const createVehicle = async (data: VehicleCreateInput) => {
+  export const createVehicle = async (formData: FormData) => {
   const token = localStorage.getItem('authToken');
-  return await axios.post(API_BASE, data, {
+  return await axios.post(API_BASE, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data',
     },
     withCredentials: true,
   });
 };
 
 // ✅ Update vehicle by ID with token-based authorization
-export const updateVehicle = async (id: number, data: VehicleCreateInput) => {
+  export const updateVehicle = async (id: number, formData: FormData) => {
   const token = localStorage.getItem('authToken');
-  return await axios.patch(`${API_BASE}/${id}`, data, {
+  return await axios.patch(`${API_BASE}/${id}`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data',
     },
     withCredentials: true,
   });

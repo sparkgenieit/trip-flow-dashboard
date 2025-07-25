@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { fetchBookings, deleteBooking } from '@/services/bookings';
+import { fetchBookings, deleteBooking, confirmBookingIfAssigned  } from '@/services/bookings';
 import { useToast } from '@/hooks/use-toast';
 import { Plus } from 'lucide-react';
 import BookingForm from '@/components/bookings/BookingForm';
@@ -202,19 +202,20 @@ const BookingsPage = () => {
   )}
 </div>
 
-
               <div>
                 <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${booking.status === 'Confirmed'
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    booking.trips && booking.trips.length > 0
                       ? 'bg-blue-100 text-blue-800'
                       : booking.status === 'Completed'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
                 >
-                  {booking.status}
+                  {booking.trips && booking.trips.length > 0 ? 'Confirmed' : booking.status}
                 </span>
               </div>
+
               <div className="space-x-2">
                 <Button
                   variant="default"
@@ -261,7 +262,11 @@ const BookingsPage = () => {
           vehicleTypeId={assignTarget.vehicleTypeId}
           numVehicles={assignTarget.numVehicles}
           onClose={() => setAssignModalOpen(false)}
-          onAssigned={loadBookings}
+          onAssigned={async () => {
+          await confirmBookingIfAssigned(assignTarget.bookingId); // 🔁 update status
+          await loadBookings(); // reload UI
+        }}
+
         />
       )}
 
@@ -287,6 +292,7 @@ const BookingsPage = () => {
           open={quoteModalOpen}
           onClose={() => setQuoteModalOpen(false)}
           onApproved={loadBookings}
+          isAdmin={isAdmin} 
         />
       )}
 

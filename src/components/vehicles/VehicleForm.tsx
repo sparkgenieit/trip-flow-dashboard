@@ -53,6 +53,7 @@ interface VehicleFormProps {
 const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   const [formData, setFormData] = useState({
     vehicleNumber: '',
+    typeId: '',
     type: '',
     comfortLevel: '',
     ratePerKm: '',
@@ -60,8 +61,10 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
     vendorId: '',
     lastServicedDate: '',
   });
-
+  const [vehicleTypes, setVehicleTypes] = useState<any[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -77,6 +80,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
 if (vehicle) {
   setFormData({
     vehicleNumber: vehicle.registrationNumber ?? '',
+    typeId: String(vehicle.vehicleTypeId || ''),
     type: vehicle.model ?? '',
     comfortLevel: vehicle.comfortLevel?.toString() ?? '',
     ratePerKm: vehicle.price?.toString() ?? '',
@@ -107,52 +111,67 @@ if (vehicle) {
   }
 };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+const token = localStorage.getItem("authToken");
+fetch(`${import.meta.env.VITE_API_BASE_URL}/vehicle-types`, {
+  headers: {
+    Authorization: token ? `Bearer ${token}` : '',
+  },
+})
+  .then((res) => res.json())
+  .then(setVehicleTypes)
+  .catch((err) => console.error("Failed to fetch vehicle types", err));
 
-    try {
-      const payload:any = {
-        name: formData.vehicleNumber,
-        model: formData.type,
-        image: '',
-        capacity: 4,
-        registrationNumber: formData.vehicleNumber,
-        price: parseFloat(formData.ratePerKm),
-        originalPrice: parseFloat(formData.ratePerKm),
-        comfortLevel: parseInt(formData.comfortLevel),
-        status: formData.status,
-        lastServicedDate: formData.lastServicedDate || undefined,
-        vehicleTypeId: 1,
-      };
 
-      if (isAdmin && formData.vendorId) {
-        payload.vendorId = parseInt(formData.vendorId);
-      }
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
 
-      if (vehicle?.id) {
-        await updateVehicle(vehicle.id, payload);
-      } else {
-        await createVehicle(payload);
-      }
+  try {
+   const formDataToSend = new FormData();
+  formDataToSend.append('name', formData.vehicleNumber);
+  formDataToSend.append('model', formData.type);
+  formDataToSend.append('registrationNumber', formData.vehicleNumber);
+  formDataToSend.append('capacity', String(4));
+  formDataToSend.append('price', String(formData.ratePerKm));
+  formDataToSend.append('originalPrice', String(formData.ratePerKm));
+  formDataToSend.append('comfortLevel', String(formData.comfortLevel));
+  formDataToSend.append('status', String(formData.status));
+  formDataToSend.append('lastServicedDate', formData.lastServicedDate || '');
+  formDataToSend.append('vehicleTypeId', String(formData.typeId)); // ✅ DYNAMIC
 
-      toast({
-        title: 'Success',
-        description: vehicle ? 'Vehicle updated successfully' : 'Vehicle created successfully',
-      });
+if (isAdmin && formData.vendorId) {
+  formDataToSend.append('vendorId', String(formData.vendorId));
+}
 
-      onClose();
-    } catch (error) {
-      console.error('Error saving vehicle:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save vehicle',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
+// ✅ PLACE THIS HERE
+imageFiles.forEach((file) => {
+  formDataToSend.append('images', file);
+});
+
+    if (vehicle?.id) {
+      await updateVehicle(vehicle.id, formDataToSend);
+    } else {
+      await createVehicle(formDataToSend);
     }
-  };
+
+    toast({
+      title: 'Success',
+      description: vehicle ? 'Vehicle updated successfully' : 'Vehicle created successfully',
+    });
+
+    onClose();
+  } catch (error) {
+    console.error('Error saving vehicle:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to save vehicle',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -177,23 +196,25 @@ if (vehicle) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="type">Vehicle Type</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(value) => setFormData({ ...formData, type: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select vehicle type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SUV">SUV</SelectItem>
-                <SelectItem value="hatchback">Hatchback</SelectItem>
-                <SelectItem value="sedan">Sedan</SelectItem>
-                <SelectItem value="XUV">XUV</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+<div className="space-y-2">
+  <Label>Vehicle Type</Label>
+  <Select
+    value={formData.typeId}
+    onValueChange={(value) => setFormData({ ...formData, typeId: value })}
+  >
+    <SelectTrigger>
+      <SelectValue placeholder="Select vehicle type" />
+    </SelectTrigger>
+    <SelectContent>
+      {vehicleTypes.map((type) => (
+        <SelectItem key={type.id} value={String(type.id)}>
+          {type.name}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+
 
           <div className="space-y-2">
             <Label htmlFor="comfortLevel">Comfort Level (1–5)</Label>
@@ -222,6 +243,33 @@ if (vehicle) {
               }
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="images">Vehicle Images</Label>
+            <Input
+              id="images"
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                setImageFiles(files);
+                setImagePreviews(files.map(file => URL.createObjectURL(file)));
+              }}
+            />
+            {imagePreviews.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {imagePreviews.map((src, idx) => (
+                  <img
+                    key={idx}
+                    src={src}
+                    alt={`preview-${idx}`}
+                    className="w-24 h-24 object-cover border rounded"
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

@@ -26,6 +26,7 @@ import AdminVehiclesPage from "@/pages/admin/VehiclesPage";
 import VendorVehiclesPage from "@/pages/vendor/VehiclesPage";
 import DriverVehiclesPage from "@/pages/driver/VehiclesPage";
 import ViewBooking from "@/components/bookings/ViewBooking";
+import TrackTripPage from '@/pages/trips/TrackTripPage';
 
 const queryClient = new QueryClient();
 
@@ -59,8 +60,11 @@ const App = () => (
               <Route path="feedback" element={<FeedbackPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="corporate/*" element={<CorporateDashboard />} />
-            </Route>
 
+            </Route>
+              {/* ✅ Standalone full-screen route for tracking */}
+              <Route path="/trips/track" element={<TrackTripPage />} />
+              
             {/* ✅ NEW: ROLE-SPECIFIC VEHICLE PAGES */}
             <Route
               path="/admin/vehicles"

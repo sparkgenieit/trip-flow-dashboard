@@ -16,17 +16,31 @@ export interface DriverCreateInput {
 }
 
 // ✅ Create driver with token (update here)
-export const createDriver = async (data: DriverCreateInput) => {
+export const createDriver = async (formData: FormData) => {
   const token = localStorage.getItem('authToken');
+  const userRole = localStorage.getItem('userRole');
 
-  const userRole = localStorage.getItem('userRole'); // 🟡 Ensure you store this at login
   if (userRole === 'VENDOR') {
-    delete data.vendorId; // ✅ Let backend extract vendorId from token
+    formData.delete('vendorId'); // ✅ Prevent vendorId from being sent
   }
 
-  return await axios.post(API_BASE, data, {
+  return await axios.post(API_BASE, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data',
+    },
+    withCredentials: true,
+  });
+};
+
+
+  // ✅ PATCH /drivers/:id with FormData
+export const updateDriverMultipart = async (id: number, formData: FormData) => {
+  const token = localStorage.getItem('authToken');
+  return await axios.patch(`${API_BASE}/${id}`, formData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data',
     },
     withCredentials: true,
   });
