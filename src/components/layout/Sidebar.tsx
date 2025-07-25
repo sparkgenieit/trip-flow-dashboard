@@ -18,7 +18,7 @@ import {
 
 const Sidebar = () => {
   const location = useLocation();
-  const { isAdmin, isVendor, isDriver } = useAuth();
+  const { isAdmin, isVendor, isDriver,isRider } = useAuth();
 
   const commonItems = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -52,11 +52,19 @@ const Sidebar = () => {
     { name: 'Feedback', href: '/dashboard/feedback', icon: MessageSquare },
     { name: 'Earnings', href: '/dashboard/earnings', icon: BarChart3 },
   ];
-
+  const riderItems = [
+   
+    { name: 'My Trips', href: '/dashboard/trips', icon: MapPin },
+    { name: 'Feedback', href: '/dashboard/feedback', icon: MessageSquare },
+    
+  ];
   let navigation = [...commonItems];
   if (isAdmin) navigation = [...navigation, ...adminItems];
   else if (isVendor) navigation = [...navigation, ...vendorItems];
   else if (isDriver) navigation = [...navigation, ...driverItems];
+  else if (isRider) navigation = [...navigation, ...riderItems];
+
+
 
   return (
     <div className="flex flex-col w-64 bg-white border-r border-gray-200 h-full">

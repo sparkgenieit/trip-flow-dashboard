@@ -21,6 +21,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isVendor: boolean;
   isDriver: boolean;
+  isRider: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -132,6 +133,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const isAdmin = user?.role === "ADMIN";
   const isVendor = user?.role === "VENDOR";
   const isDriver = user?.role === "DRIVER";
+  const isRider = user?.role === "RIDER";
 
   return (
     <AuthContext.Provider
@@ -143,6 +145,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         isAdmin,
         isVendor,
         isDriver,
+        isRider,
       }}
     >
       {children}

@@ -1,18 +1,20 @@
-
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, MapPin, Clock, AlertTriangle, Phone, MapIcon } from 'lucide-react';
+import { generateInvoice } from '@/services/invoice';
 import { useToast } from '@/hooks/use-toast';
 import { getTrips } from '@/services/trip';
+
 import ReactModal from 'react-modal';
 import GoogleMapReact from 'google-map-react';
-
+import FeedbackForm, { FeedbackFormData } from './FeedbackForm';
 
 interface Trip {
   id: number;
+  riderId: number;
   startTime: string;
   endTime?: string;
   distance?: number;
@@ -24,7 +26,10 @@ interface Trip {
     dropAddress?: { address: string };
     user?: { name: string };
   };
-  driver?: { fullName: string };
+  driver?: {
+    id: number;
+    fullName: string;
+  };
   vehicle?: { registrationNumber: string };
 }
 
@@ -33,115 +38,176 @@ const TripsPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const [feedbackTrip, setFeedbackTrip] = useState<Trip | null>(null);
+  const [trackTripId, setTrackTripId] = useState<number | null>(null);
+  const [trackModalOpen, setTrackModalOpen] = useState(false);
 
-  useEffect(() => {
-    fetchTrips();
-  }, []);
-
-    const fetchTrips = async () => {
+  const fetchTrips = async () => {
     try {
       const data = await getTrips();
       setTrips(data);
     } catch (error) {
       console.error('Error fetching trips:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch trips",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to fetch trips',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const Marker = ({ lat, lng }: { lat: number; lng: number }) => (
-  <div className="text-red-600 text-xl">📍</div>
-);
-
-interface TrackTripModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  tripId: number;
-}
-
-const TrackTripModal: React.FC<TrackTripModalProps> = ({ isOpen, onClose, tripId }) => {
-  const [lat, setLat] = useState<number>(12.9352); // Marathahalli lat
-  const [lng, setLng] = useState<number>(77.6946); // Marathahalli lng
-
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isOpen) {
-      interval = setInterval(() => {
-        setLat((prev) => prev + (Math.random() - 0.5) * 0.001);
-        setLng((prev) => prev + (Math.random() - 0.5) * 0.001);
-      }, 30000); // every 30 seconds
-    }
-    return () => clearInterval(interval);
-  }, [isOpen]);
+    fetchTrips();
+  }, []);
 
-  return (
-    <ReactModal
-      isOpen={isOpen}
-      onRequestClose={onClose}
-      contentLabel="Track Trip"
-      className="bg-white p-4 rounded shadow-lg max-w-2xl mx-auto my-12"
-      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
-    >
-      <h2 className="text-xl font-bold mb-4">Tracking Trip #{tripId}</h2>
-      <div style={{ height: '400px', width: '100%' }}>
-        <GoogleMapReact
-          bootstrapURLKeys={{ key: 'AIzaSyCx7ABaUaR43JU2bhbyDvAEfLk9t0vvLQI' }}
-          center={{ lat, lng }}
-          defaultZoom={15}
-        >
-          <Marker lat={lat} lng={lng} />
-        </GoogleMapReact>
-      </div>
-      <div className="flex justify-end mt-4">
-        <Button onClick={onClose}>Close</Button>
-      </div>
-    </ReactModal>
+  const Marker = ({ lat, lng }: { lat: number; lng: number }) => (
+    <div className="text-red-600 text-xl">📍</div>
   );
-};
 
-const [trackTripId, setTrackTripId] = useState<number | null>(null);
-const [trackModalOpen, setTrackModalOpen] = useState(false);
+  interface TrackTripModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    tripId: number;
+  }
 
-const handleTrackTrip = (tripId: number) => {
-  setTrackTripId(tripId);
-  setTrackModalOpen(true);
-};
+  const TrackTripModal: React.FC<TrackTripModalProps> = ({ isOpen, onClose, tripId }) => {
+    const [lat, setLat] = useState<number>(12.9352);
+    const [lng, setLng] = useState<number>(77.6946);
 
+    useEffect(() => {
+      let interval: NodeJS.Timeout;
+      if (isOpen) {
+        interval = setInterval(() => {
+          setLat((prev) => prev + (Math.random() - 0.5) * 0.001);
+          setLng((prev) => prev + (Math.random() - 0.5) * 0.001);
+        }, 30000);
+      }
+      return () => clearInterval(interval);
+    }, [isOpen]);
+
+    return (
+      <ReactModal
+        isOpen={isOpen}
+        onRequestClose={onClose}
+        contentLabel="Track Trip"
+        className="bg-white p-4 rounded shadow-lg max-w-2xl mx-auto my-12"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
+      >
+        <h2 className="text-xl font-bold mb-4">Tracking Trip #{tripId}</h2>
+        <div style={{ height: '400px', width: '100%' }}>
+          <GoogleMapReact
+            bootstrapURLKeys={{ key: 'AIzaSyCx7ABaUaR43JU2bhbyDvAEfLk9t0vvLQI' }}
+            center={{ lat, lng }}
+            defaultZoom={15}
+          >
+            <Marker lat={lat} lng={lng} />
+          </GoogleMapReact>
+        </div>
+        <div className="flex justify-end mt-4">
+          <Button onClick={onClose}>Close</Button>
+        </div>
+      </ReactModal>
+    );
+  };
+
+  const handleTrackTrip = (tripId: number) => {
+    setTrackTripId(tripId);
+    setTrackModalOpen(true);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'scheduled': return 'secondary';
-      case 'started': return 'default';
-      case 'completed': return 'outline';
-      case 'cancelled': return 'destructive';
-      case 'breakdown': return 'destructive';
-      default: return 'secondary';
+      case 'scheduled':
+        return 'secondary';
+      case 'started':
+        return 'default';
+      case 'completed':
+        return 'outline';
+      case 'cancelled':
+      case 'breakdown':
+        return 'destructive';
+      default:
+        return 'secondary';
     }
   };
 
-  const handleTripAssistance = (tripId: string) => {
+  const handleTripAssistance = (tripId: number) => {
     toast({
-      title: "Trip Assistance",
-      description: "Emergency assistance has been notified for this trip",
+      title: 'Trip Assistance',
+      description: 'Emergency assistance has been notified for this trip',
     });
   };
 
-  const handleContactDriver = (tripId: string) => {
+  const handleContactDriver = (tripId: number) => {
     toast({
-      title: "Contacting Driver",
-      description: "Connecting you with the driver...",
+      title: 'Contacting Driver',
+      description: 'Connecting you with the driver...',
     });
   };
 
-  const filteredTrips = trips.filter(trip =>
-    trip.start_location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trip.end_location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trip.bookings?.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  const handleGenerateInvoiceForTrip = async (tripId?: number) => {
+    try {
+      const enteredTripId = tripId ?? Number(prompt('Enter Trip ID to generate invoice for:'));
+      if (!enteredTripId) return;
+
+      const invoice = await generateInvoice(enteredTripId);
+      toast({
+        title: 'Success',
+        description: `Invoice ${invoice.invoiceNumber} generated.`,
+      });
+
+      fetchTrips();
+    } catch (error) {
+      console.error('Error generating invoice:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate invoice',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
+    if (!feedbackTrip) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify({
+          tripId: feedbackTrip.id,
+          driverId: feedbackTrip.driver?.id,
+          riderId: feedbackTrip.riderId,
+          ...feedback,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to submit feedback');
+
+      toast({
+        title: 'Feedback submitted',
+        description: 'Thanks for your response!',
+      });
+    } catch (error) {
+      console.error('Feedback error:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not submit feedback',
+        variant: 'destructive',
+      });
+    } finally {
+      setFeedbackTrip(null);
+    }
+  };
+
+  const filteredTrips = trips.filter((trip) =>
+    trip.booking?.pickupAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trip.booking?.dropAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trip.booking?.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -179,13 +245,11 @@ const handleTrackTrip = (tripId: number) => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">
-                  {trip.bookings?.profiles?.full_name || 'Unknown Customer'}
+                  {trip.booking?.user?.name || 'Unknown Customer'}
                 </CardTitle>
                 <div className="flex space-x-2">
-                  <Badge variant={getStatusColor(trip.status)}>
-                    {trip.status}
-                  </Badge>
-                  {trip.breakdown_reported && (
+                  <Badge variant={getStatusColor(trip.status)}>{trip.status}</Badge>
+                  {trip.breakdownReported && (
                     <Badge variant="destructive" className="flex items-center space-x-1">
                       <AlertTriangle className="h-3 w-3" />
                       <span>Breakdown</span>
@@ -200,54 +264,55 @@ const handleTrackTrip = (tripId: number) => {
                   <MapPin className="h-4 w-4 text-green-500" />
                   <div>
                     <span className="font-medium">Start:</span>
-                    <p className="truncate">{trip.start_location || trip.bookings?.pickup_location}</p>
+                    <p className="truncate">{trip.booking?.pickupAddress?.address || 'Unknown'}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <MapPin className="h-4 w-4 text-red-500" />
                   <div>
                     <span className="font-medium">End:</span>
-                    <p className="truncate">{trip.end_location || trip.bookings?.dropoff_location}</p>
+                    <p className="truncate">{trip.booking?.dropAddress?.address || 'Unknown'}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Clock className="h-4 w-4 text-blue-500" />
                   <div>
                     <span className="font-medium">Started:</span>
-                    <p>{trip.start_time ? new Date(trip.start_time).toLocaleString() : 'Not started'}</p>
+                    <p>{trip.startTime ? new Date(trip.startTime).toLocaleString() : 'Not started'}</p>
                   </div>
                 </div>
                 <div>
                   <span className="font-medium">Distance:</span>
-                  <p>{trip.actual_distance ? `${trip.actual_distance} km` : 'In progress'}</p>
+                  <p>{trip.distance ? `${trip.distance} km` : 'In progress'}</p>
                 </div>
               </div>
-              
+
               <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                {trip.drivers && (
+                {trip.driver && (
                   <div>
                     <span className="font-medium">Driver:</span>
-                    <p>{trip.drivers.profiles?.full_name}</p>
+                    <p>{trip.driver.fullName}</p>
                   </div>
                 )}
-                {trip.vehicles && (
+                {trip.vehicle && (
                   <div>
                     <span className="font-medium">Vehicle:</span>
-                    <p>{trip.vehicles.vehicle_number}</p>
+                    <p>{trip.vehicle.registrationNumber}</p>
                   </div>
                 )}
               </div>
 
-              {trip.breakdown_reported && trip.breakdown_notes && (
+              {trip.breakdownReported && trip.breakdownNotes && (
                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
                   <div className="flex items-center space-x-2 text-red-700">
                     <AlertTriangle className="h-4 w-4" />
                     <span className="font-medium">Breakdown Report:</span>
                   </div>
-                  <p className="text-red-600 text-sm mt-1">{trip.breakdown_notes}</p>
+                  <p className="text-red-600 text-sm mt-1">{trip.breakdownNotes}</p>
                 </div>
               )}
 
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -257,36 +322,59 @@ const handleTrackTrip = (tripId: number) => {
                   Track Trip
                 </Button>
 
-
                 <Button size="sm" variant="outline" onClick={() => handleContactDriver(trip.id)}>
                   <Phone className="mr-1 h-3 w-3" />
                   Contact Driver
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant={trip.breakdown_reported ? "destructive" : "outline"}
+
+                <Button
+                  size="sm"
+                  variant={trip.breakdownReported ? 'destructive' : 'outline'}
                   onClick={() => handleTripAssistance(trip.id)}
                 >
                   <AlertTriangle className="mr-1 h-3 w-3" />
                   Trip Assistance
                 </Button>
+
                 <Button size="sm" variant="outline">
                   View Details
                 </Button>
+
+                <Button size="sm" variant="outline" onClick={() => setFeedbackTrip(trip)}>
+                  Feedback
+                </Button>
+
+                <Button size="sm" variant="outline" onClick={() => handleGenerateInvoiceForTrip(trip.id)}>
+                  Generate Invoice
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-                {trackTripId !== null && (
-                <TrackTripModal
-                  isOpen={trackModalOpen}
-                  onClose={() => setTrackModalOpen(false)}
-                  tripId={trackTripId}
-                />
-              )}
-            </div>
-         );
-        };
+      {trackTripId !== null && (
+        <TrackTripModal
+          isOpen={trackModalOpen}
+          onClose={() => setTrackModalOpen(false)}
+          tripId={trackTripId}
+        />
+      )}
+
+      {feedbackTrip && (
+        <FeedbackForm
+          open={!!feedbackTrip}
+          onClose={() => setFeedbackTrip(null)}
+          onSubmit={handleFeedbackSubmit}
+          tripInfo={{
+            from: feedbackTrip.booking?.pickupAddress?.address || 'Unknown',
+            to: feedbackTrip.booking?.dropAddress?.address || 'Unknown',
+            driverName: feedbackTrip.driver?.fullName || 'Unknown',
+          }}
+        />
+      )}
+    </div>
+  );
+};
 
 export default TripsPage;
