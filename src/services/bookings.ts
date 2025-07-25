@@ -71,4 +71,13 @@ export async function confirmBookingIfAssigned(id: number) {
   return res.data;
 }
 
+export const getAvailableVehicles = async (vehicleTypeId: number) => {
+  const res = await axios.get(
+    `${BASE_URL}/bookings/assignable-vehicles/${vehicleTypeId}`,
+    authHeaders()
+  );
+  return res.data;
+};
+
+
 
