@@ -65,3 +65,19 @@ export const fetchUserByPhone = async (phone: string) => {
   );
   return res.data;
 };
+
+export async function confirmBookingIfAssigned(id: number) {
+  const res = await axios.patch(`${BASE_URL}/bookings/${id}/confirm-if-assigned`, {}, authHeaders());
+  return res.data;
+}
+
+export const getAvailableVehicles = async (vehicleTypeId: number) => {
+  const res = await axios.get(
+    `${BASE_URL}/bookings/assignable-vehicles/${vehicleTypeId}`,
+    authHeaders()
+  );
+  return res.data;
+};
+
+
+

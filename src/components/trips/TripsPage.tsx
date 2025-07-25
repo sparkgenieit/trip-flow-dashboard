@@ -4,15 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, MapPin, Clock, AlertTriangle, Phone, MapIcon } from 'lucide-react';
-import { generateInvoice } from '@/services/invoice'; // ✅ Add this
+import { generateInvoice } from '@/services/invoice';
 import { useToast } from '@/hooks/use-toast';
 import { getTrips } from '@/services/trip';
-import FeedbackForm, { FeedbackFormData } from './FeedbackForm';
 
+import ReactModal from 'react-modal';
+import GoogleMapReact from 'google-map-react';
+import FeedbackForm, { FeedbackFormData } from './FeedbackForm';
 
 interface Trip {
   id: number;
-  riderId:number;
+  riderId: number;
   startTime: string;
   endTime?: string;
   distance?: number;
@@ -25,9 +27,9 @@ interface Trip {
     user?: { name: string };
   };
   driver?: {
-  id: number;
-  fullName: string;
-};
+    id: number;
+    fullName: string;
+  };
   vehicle?: { registrationNumber: string };
 }
 
@@ -36,47 +38,9 @@ const TripsPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-const [feedbackTrip, setFeedbackTrip] = useState<Trip | null>(null);
-
-const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
-  console.log(feedbackTrip);
-  if (!feedbackTrip) return;
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/feedback`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-      },
-      body: JSON.stringify({
-        tripId: feedbackTrip.id,
-        driverId: feedbackTrip.driver?.id,
-        riderId: feedbackTrip.riderId, // Replace with actual user ID if needed
-        ...feedback,
-      }),
-    });
-
-    if (!res.ok) throw new Error('Failed to submit feedback');
-
-    toast({
-      title: 'Feedback submitted',
-      description: 'Thanks for your response!',
-    });
-  } catch (error) {
-    console.error('Feedback error:', error);
-    toast({
-      title: 'Error',
-      description: 'Could not submit feedback',
-      variant: 'destructive',
-    });
-  } finally {
-    setFeedbackTrip(null);
-  }
-};
-
-  useEffect(() => {
-    fetchTrips();
-  }, []);
+  const [feedbackTrip, setFeedbackTrip] = useState<Trip | null>(null);
+  const [trackTripId, setTrackTripId] = useState<number | null>(null);
+  const [trackModalOpen, setTrackModalOpen] = useState(false);
 
   const fetchTrips = async () => {
     try {
@@ -92,6 +56,65 @@ const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchTrips();
+  }, []);
+
+  const Marker = ({ lat, lng }: { lat: number; lng: number }) => (
+    <div className="text-red-600 text-xl">📍</div>
+  );
+
+  interface TrackTripModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    tripId: number;
+  }
+
+  const TrackTripModal: React.FC<TrackTripModalProps> = ({ isOpen, onClose, tripId }) => {
+    const [lat, setLat] = useState<number>(12.9352);
+    const [lng, setLng] = useState<number>(77.6946);
+
+    useEffect(() => {
+      let interval: NodeJS.Timeout;
+      if (isOpen) {
+        interval = setInterval(() => {
+          setLat((prev) => prev + (Math.random() - 0.5) * 0.001);
+          setLng((prev) => prev + (Math.random() - 0.5) * 0.001);
+        }, 30000);
+      }
+      return () => clearInterval(interval);
+    }, [isOpen]);
+
+    return (
+      <ReactModal
+        isOpen={isOpen}
+        onRequestClose={onClose}
+        contentLabel="Track Trip"
+        className="bg-white p-4 rounded shadow-lg max-w-2xl mx-auto my-12"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
+      >
+        <h2 className="text-xl font-bold mb-4">Tracking Trip #{tripId}</h2>
+        <div style={{ height: '400px', width: '100%' }}>
+          <GoogleMapReact
+            bootstrapURLKeys={{ key: 'AIzaSyCx7ABaUaR43JU2bhbyDvAEfLk9t0vvLQI' }}
+            center={{ lat, lng }}
+            defaultZoom={15}
+          >
+            <Marker lat={lat} lng={lng} />
+          </GoogleMapReact>
+        </div>
+        <div className="flex justify-end mt-4">
+          <Button onClick={onClose}>Close</Button>
+        </div>
+      </ReactModal>
+    );
+  };
+
+  const handleTrackTrip = (tripId: number) => {
+    setTrackTripId(tripId);
+    setTrackModalOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -125,29 +148,61 @@ const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
   };
 
   const handleGenerateInvoiceForTrip = async (tripId?: number) => {
-  try {
-    const enteredTripId = tripId ?? Number(prompt('Enter Trip ID to generate invoice for:'));
-    if (!enteredTripId) return;
+    try {
+      const enteredTripId = tripId ?? Number(prompt('Enter Trip ID to generate invoice for:'));
+      if (!enteredTripId) return;
 
-    const invoice = await generateInvoice(enteredTripId);
-    toast({
-      title: 'Success',
-      description: `Invoice ${invoice.invoiceNumber} generated.`,
-    });
+      const invoice = await generateInvoice(enteredTripId);
+      toast({
+        title: 'Success',
+        description: `Invoice ${invoice.invoiceNumber} generated.`,
+      });
 
-    // Optional: refetch trips to reflect updated invoice data
-    fetchTrips();
-  } catch (error) {
-    console.error('Error generating invoice:', error);
-    toast({
-      title: 'Error',
-      description: 'Failed to generate invoice',
-      variant: 'destructive',
-    });
-  }
-};
+      fetchTrips();
+    } catch (error) {
+      console.error('Error generating invoice:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate invoice',
+        variant: 'destructive',
+      });
+    }
+  };
 
+  const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
+    if (!feedbackTrip) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify({
+          tripId: feedbackTrip.id,
+          driverId: feedbackTrip.driver?.id,
+          riderId: feedbackTrip.riderId,
+          ...feedback,
+        }),
+      });
 
+      if (!res.ok) throw new Error('Failed to submit feedback');
+
+      toast({
+        title: 'Feedback submitted',
+        description: 'Thanks for your response!',
+      });
+    } catch (error) {
+      console.error('Feedback error:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not submit feedback',
+        variant: 'destructive',
+      });
+    } finally {
+      setFeedbackTrip(null);
+    }
+  };
 
   const filteredTrips = trips.filter((trip) =>
     trip.booking?.pickupAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -257,15 +312,21 @@ const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
                 </div>
               )}
 
-              <div className="mt-4 flex space-x-2">
-                <Button size="sm" variant="outline">
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(`/trips/track?tripId=${trip.id}`, '_blank')}
+                >
                   <MapIcon className="mr-1 h-3 w-3" />
                   Track Trip
                 </Button>
+
                 <Button size="sm" variant="outline" onClick={() => handleContactDriver(trip.id)}>
                   <Phone className="mr-1 h-3 w-3" />
                   Contact Driver
                 </Button>
+
                 <Button
                   size="sm"
                   variant={trip.breakdownReported ? 'destructive' : 'outline'}
@@ -274,30 +335,33 @@ const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
                   <AlertTriangle className="mr-1 h-3 w-3" />
                   Trip Assistance
                 </Button>
+
                 <Button size="sm" variant="outline">
                   View Details
                 </Button>
-                <Button
-                 size="sm"
-                  variant="outline"
-                  onClick={() => setFeedbackTrip(trip)}
-                >
-                   Feedback
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleGenerateInvoiceForTrip(trip.id)}
-                  >
-                    Generate Invoice
-                  </Button>
 
+                <Button size="sm" variant="outline" onClick={() => setFeedbackTrip(trip)}>
+                  Feedback
+                </Button>
+
+                <Button size="sm" variant="outline" onClick={() => handleGenerateInvoiceForTrip(trip.id)}>
+                  Generate Invoice
+                </Button>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
-     {feedbackTrip && (
+
+      {trackTripId !== null && (
+        <TrackTripModal
+          isOpen={trackModalOpen}
+          onClose={() => setTrackModalOpen(false)}
+          tripId={trackTripId}
+        />
+      )}
+
+      {feedbackTrip && (
         <FeedbackForm
           open={!!feedbackTrip}
           onClose={() => setFeedbackTrip(null)}
@@ -309,7 +373,7 @@ const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
           }}
         />
       )}
-    </div> // ✅ Final closing div of return
+    </div>
   );
 };
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { fetchBookings, deleteBooking } from '@/services/bookings';
+import { fetchBookings, deleteBooking, confirmBookingIfAssigned  } from '@/services/bookings';
 import { useToast } from '@/hooks/use-toast';
 import { Plus } from 'lucide-react';
 import BookingForm from '@/components/bookings/BookingForm';
@@ -25,8 +25,11 @@ interface Booking {
   customerName: string;
   numVehicles: number;
   vehiclesAssigned: number;
+  trips?: any[]; // ✅ new field from backend
 }
-
+  const role = localStorage.getItem('userRole');
+  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const isVendor =  role === 'VENDOR';
 const BookingsPage = () => {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -177,32 +180,42 @@ const BookingsPage = () => {
                 <br />
                 {new Date(booking.pickupDateTime).toLocaleTimeString()}
               </div>
-              <div className="flex flex-col gap-1">
-                <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
-                  {booking.vehiclesAssigned > 0
-                    ? `${booking.vehiclesAssigned} assigned`
-                    : 'Not Assigned'}
-                </span>
-                <Button
-                  variant={booking.vehiclesAssigned > 0 ? 'outline' : 'default'}
-                  size="sm"
-                  onClick={() => handleAssign(booking)}
-                >
-                  {booking.vehiclesAssigned > 0 ? 'Reassign' : 'Assign'}
-                </Button>
-              </div>
+<div className="flex flex-col gap-1 items-start">
+  <span
+    className={`px-2 py-1 rounded text-xs font-medium ${
+      booking.trips && booking.trips.length > 0
+        ? 'bg-green-100 text-green-800'
+        : 'bg-gray-100 text-gray-800'
+    }`}
+  >
+    {booking.trips && booking.trips.length > 0 ? 'Assigned' : 'Not Assigned'}
+  </span>
+
+  {(isVendor) && (
+    <Button
+      variant={booking.trips && booking.trips.length > 0 ? 'outline' : 'default'}
+      size="sm"
+      onClick={() => handleAssign(booking)}
+    >
+      {booking.trips && booking.trips.length > 0 ? 'Reassign' : 'Assign'}
+    </Button>
+  )}
+</div>
+
               <div>
                 <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${booking.status === 'Confirmed'
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    booking.trips && booking.trips.length > 0
                       ? 'bg-blue-100 text-blue-800'
                       : booking.status === 'Completed'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
                 >
-                  {booking.status}
+                  {booking.trips && booking.trips.length > 0 ? 'Confirmed' : booking.status}
                 </span>
               </div>
+
               <div className="space-x-2">
                 <Button
                   variant="default"
@@ -218,13 +231,15 @@ const BookingsPage = () => {
                   }}
                 >
                   Edit
-                </Button>
+                  </Button>
+                {isAdmin && (               
                 <Button variant="secondary" onClick={async () => {
                   await shareBookingWithVendors(booking.id);
                   toast({ title: 'Shared with vendors' });
                 }}>
                   📤 Share
                 </Button>
+                )}
                 <Button variant="outline" onClick={() => {
                   setQuoteBookingId(booking.id);
                   setQuoteModalOpen(true);
@@ -247,7 +262,11 @@ const BookingsPage = () => {
           vehicleTypeId={assignTarget.vehicleTypeId}
           numVehicles={assignTarget.numVehicles}
           onClose={() => setAssignModalOpen(false)}
-          onAssigned={loadBookings}
+          onAssigned={async () => {
+          await confirmBookingIfAssigned(assignTarget.bookingId); // 🔁 update status
+          await loadBookings(); // reload UI
+        }}
+
         />
       )}
 
@@ -273,6 +292,7 @@ const BookingsPage = () => {
           open={quoteModalOpen}
           onClose={() => setQuoteModalOpen(false)}
           onApproved={loadBookings}
+          isAdmin={isAdmin} 
         />
       )}
 

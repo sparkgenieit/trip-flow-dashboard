@@ -7,6 +7,7 @@ import { fetchQuotesForBooking, approveQuote } from '@/services/quotes';
 interface Quote {
   id: number;
   amount: number;
+  approved: boolean;
   vendor: {
     name: string;
     companyReg: string;
@@ -19,9 +20,10 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onApproved: () => void;
+  isAdmin: boolean;
 }
 
-const VendorQuoteListModal: React.FC<Props> = ({ bookingId, open, onClose, onApproved }) => {
+const VendorQuoteListModal: React.FC<Props> = ({ bookingId, open, onClose, onApproved, isAdmin }) => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const { toast } = useToast();
 
@@ -55,35 +57,46 @@ const VendorQuoteListModal: React.FC<Props> = ({ bookingId, open, onClose, onApp
         <DialogHeader>
           <DialogTitle>Vendor Quotes</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
-{quotes.length === 0 ? (
-  <p>No quotes submitted yet.</p>
-) : (
-  <>
-    {quotes.map((q) => (
-      <div
-        key={q.id}
-        className="flex justify-between items-center border p-3 rounded gap-4"
-      >
-        {/* LEFT: Vendor Details */}
-        <div className="flex flex-col">
-          <div className="font-medium text-gray-900">{q.vendor.companyReg}</div>
-          <div className="text-sm text-gray-500">By {q.vendor.name}</div>
-        </div>
+       <div className="space-y-2">
+  {quotes.length === 0 ? (
+    <p>No quotes submitted yet.</p>
+  ) : (
+    <>
+  {quotes.map((q) => (
+  <div
+    key={q.id}
+    className={`flex justify-between items-center border p-3 rounded gap-4 ${
+      q.approved ? 'bg-green-100 border-green-500' : ''
+    }`}
+  >
+    {/* LEFT: Vendor Details */}
+    <div className="flex flex-col">
+      <div className="font-medium text-gray-900">{q.vendor.companyReg}</div>
+      <div className="text-sm text-gray-500">By {q.vendor.name}</div>
+    </div>
 
-        {/* CENTER: Quote Amount */}
-        <div className="text-lg font-semibold text-gray-800 whitespace-nowrap">
-          ₹ {q.amount}
-        </div>
+    {/* CENTER: Quote Amount */}
+    <div className="text-lg font-semibold text-gray-800 whitespace-nowrap">
+      ₹ {q.amount}
+    </div>
 
-        {/* RIGHT: Approve Button */}
+    {/* RIGHT: Approve button or Approved badge */}
+    {q.approved ? (
+      <span className="text-green-700 font-medium text-sm px-3 py-1 rounded bg-green-200">
+        ✔ Approved
+      </span>
+    ) : (
+      isAdmin && (
         <Button onClick={() => handleApprove(q.id)}>Approve</Button>
-      </div>
-    ))}
-  </>
-)}
+      )
+    )}
+  </div>
+))}
 
-        </div>
+    </>
+  )}
+</div>
+
       </DialogContent>
     </Dialog>
   );

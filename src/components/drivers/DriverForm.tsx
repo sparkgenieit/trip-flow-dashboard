@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { createDriver, updateDriver } from '@/services/drivers';
+import { createDriver, updateDriverMultipart  } from '@/services/drivers';
 import { fetchAllVendors } from '@/services/vendor';
 import { getVehicles } from '@/services/vehicles';
 
@@ -50,6 +50,10 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
   const [vendors, setVendors] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [licenseImage, setLicenseImage] = useState<File | null>(null);
+  const [rcImage, setRcImage] = useState<File | null>(null);
+  const [licensePreview, setLicensePreview] = useState<string | null>(null);
+  const [rcPreview, setRcPreview] = useState<string | null>(null);
   const { toast } = useToast();
 
 useEffect(() => {
@@ -89,25 +93,26 @@ const fetchVendorsAndVehicles = async () => {
   e.preventDefault();
   setLoading(true);
 
-    const payload = {
-    fullName: formData.fullName,
-    phone: formData.phone,
-    email: formData.email,
-    licenseNumber: formData.licenseNumber,
-    licenseExpiry: formData.licenseExpiry,
-    isPartTime: formData.isPartTime,
-    isAvailable: formData.isAvailable,
-    vendorId: formData.vendorId ? Number(formData.vendorId) : undefined,
-    vehicleId: formData.assignedVehicleId ? Number(formData.assignedVehicleId) : undefined,
-    userId: formData.userId ? Number(formData.userId) : undefined,
-  };
+    const fd = new FormData();
+    fd.append('fullName', formData.fullName);
+    fd.append('phone', formData.phone);
+    fd.append('email', formData.email);
+    fd.append('licenseNumber', formData.licenseNumber);
+    fd.append('licenseExpiry', formData.licenseExpiry);
+    fd.append('isPartTime', String(formData.isPartTime));
+    fd.append('isAvailable', String(formData.isAvailable));
 
+    if (formData.vendorId) fd.append('vendorId', String(formData.vendorId));
+    if (formData.assignedVehicleId) fd.append('vehicleId', String(formData.assignedVehicleId));
+    if (formData.userId) fd.append('userId', String(formData.userId));
+    if (licenseImage) fd.append('licenseImage', licenseImage);
+    if (rcImage) fd.append('rcImage', rcImage);
   try {
     if (driver && driver.id) {
-      await updateDriver(driver.id, payload);
+      await updateDriverMultipart(driver.id, fd);
       toast({ title: 'Success', description: 'Driver updated successfully' });
     } else {
-      await createDriver(payload);
+      await createDriver(fd);
       toast({ title: 'Success', description: 'Driver created successfully' });
     }
     onClose();
@@ -122,6 +127,19 @@ const fetchVendorsAndVehicles = async () => {
     setLoading(false);
   }
 };
+
+    const handleFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (file: File | null) => void,
+    previewSetter: (url: string | null) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setter(file);
+      previewSetter(URL.createObjectURL(file));
+    }
+  };
+
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
@@ -184,6 +202,41 @@ const fetchVendorsAndVehicles = async () => {
               value={formData.licenseExpiry}
               onChange={(e) => setFormData({ ...formData, licenseExpiry: e.target.value })}
             />
+          </div>
+          {/* ✅ License Image Upload */}
+          <div className="space-y-2">
+            <Label htmlFor="licenseImage">License</Label>
+            <Input
+              id="licenseImage"
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleFileChange(e, setLicenseImage, setLicensePreview)}
+            />
+            {licensePreview && (
+              <img
+                src={licensePreview}
+                alt="License Preview"
+                className="w-24 h-24 mt-2 object-cover rounded border"
+              />
+            )}
+          </div>
+
+          {/* ✅ RC Image Upload */}
+          <div className="space-y-2">
+            <Label htmlFor="rcImage">RC</Label>
+            <Input
+              id="rcImage"
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleFileChange(e, setRcImage, setRcPreview)}
+            />
+            {rcPreview && (
+              <img
+                src={rcPreview}
+                alt="RC Preview"
+                className="w-24 h-24 mt-2 object-cover rounded border"
+              />
+            )}
           </div>
 
    {!isVendor && (

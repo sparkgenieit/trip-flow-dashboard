@@ -18,6 +18,11 @@ const Header = () => {
   const { user, signOut } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
 
+  const role = localStorage.getItem('userRole');
+  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const isVendor = role === 'VENDOR';
+
+
   const getInitials = (email: string) => {
     return email.substring(0, 2).toUpperCase();
   };
@@ -26,7 +31,12 @@ const Header = () => {
     <>
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       <div className="flex items-center">
-        <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
+        {isVendor && (
+          <h1 className="text-xl font-semibold text-gray-900">Vendor Dashboard</h1>
+        )}
+        {isAdmin && (
+          <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
+        )}
       </div>
       
       <div className="flex items-center space-x-4">
