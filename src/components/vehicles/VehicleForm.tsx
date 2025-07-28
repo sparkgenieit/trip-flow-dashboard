@@ -72,12 +72,14 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
   const isVendor =  role === 'VENDOR';
 
-  useEffect(() => {
-    if (isAdmin) {
-      fetchVendors();
-    }
+useEffect(() => {
+  if (isAdmin) {
+    fetchVendors();
+  }
+}, [isAdmin]);
 
-if (vehicle) {
+useEffect(() => {
+  if (!vehicle || vehicleTypes.length === 0) return;
   setFormData({
     vehicleNumber: vehicle.registrationNumber ?? '',
     typeId: String(vehicle.vehicleTypeId || ''),
@@ -94,8 +96,34 @@ if (vehicle) {
       ? vehicle.lastServicedDate.split('T')[0]
       : '',
   });
-}
-  }, [vehicle]);
+  // ✅ Pre-fill image preview from existing image URL(s)
+  if (vehicle.image && Array.isArray(vehicle.image)) {
+    const previews = vehicle.image.map(
+      (img) => `${import.meta.env.VITE_API_BASE_URL}/${img}`
+    );
+    setImagePreviews(previews);
+  }
+}, [vehicle, vehicleTypes]); // ✅ Waits for both
+
+  useEffect(() => {
+  const fetchVehicleTypes = async () => {
+    const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/vehicle-types`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+        },
+      });
+      const data = await res.json();
+      setVehicleTypes(data);
+    } catch (err) {
+      console.error("Failed to fetch vehicle types", err);
+    }
+  };
+
+  fetchVehicleTypes();
+}, []);
+
 
  const fetchVendors = async () => {
   try {
@@ -110,17 +138,6 @@ if (vehicle) {
     });
   }
 };
-
-const token = localStorage.getItem("authToken");
-fetch(`${import.meta.env.VITE_API_BASE_URL}/vehicle-types`, {
-  headers: {
-    Authorization: token ? `Bearer ${token}` : '',
-  },
-})
-  .then((res) => res.json())
-  .then(setVehicleTypes)
-  .catch((err) => console.error("Failed to fetch vehicle types", err));
-
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();

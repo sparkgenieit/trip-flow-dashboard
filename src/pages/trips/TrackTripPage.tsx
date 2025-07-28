@@ -1,20 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import GoogleMapReact from 'google-map-react';
 import { useSearchParams } from 'react-router-dom';
+import { driverUpdates } from './driverUpdates'; // ✅ adjust path if needed
 
-const Marker = () => <div className="text-red-600 text-xl">📍</div>;
+const Marker = ({ lat, lng }: { lat: number; lng: number }) => (
+  <div className="text-red-600 text-xl">📍</div>
+);
 
 const TrackTripPage = () => {
   const [searchParams] = useSearchParams();
   const tripId = searchParams.get('tripId');
-  const [lat, setLat] = useState<number>(12.9352);
-  const [lng, setLng] = useState<number>(77.6946);
+
+  const [index, setIndex] = useState(0);
+  const [location, setLocation] = useState(driverUpdates[0]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setLat((prev) => prev + (Math.random() - 0.5) * 0.001);
-      setLng((prev) => prev + (Math.random() - 0.5) * 0.001);
-    }, 30000);
+      setIndex((prev) => {
+        const nextIndex = prev + 1;
+        if (nextIndex < driverUpdates.length) {
+          setLocation(driverUpdates[nextIndex]);
+          return nextIndex;
+        }
+        return prev;
+      });
+    }, 3600000); // every 1 hour (in ms)
+
     return () => clearInterval(interval);
   }, []);
 
@@ -23,11 +34,16 @@ const TrackTripPage = () => {
       <h1 className="text-2xl font-bold p-4">Tracking Trip #{tripId}</h1>
       <GoogleMapReact
         bootstrapURLKeys={{ key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY }}
-        center={{ lat, lng }}
-        defaultZoom={15}
+        center={{ lat: location.lat, lng: location.lng }}
+        defaultZoom={12}
       >
-        <Marker lat={lat} lng={lng} />
+        <Marker lat={location.lat} lng={location.lng} />
       </GoogleMapReact>
+
+      <div className="p-4">
+        <h2 className="text-lg font-semibold">Driver Status:</h2>
+        <p className="text-gray-700">{location.status}</p>
+      </div>
     </div>
   );
 };
