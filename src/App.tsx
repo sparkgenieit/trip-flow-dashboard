@@ -31,6 +31,7 @@ import ProfilePage from "@/components/Profile/ProfilePage";
 import ChangePasswordPage from "@/components/Profile/ChangePasswordPage";
 import AddressBookPage from "@/components/Profile/AddressBookPage"; // ✅ Add this import
 import TrackTripPage from '@/pages/trips/TrackTripPage';
+import TripAssistancePage from "@/components/trips/TripAssistancePage"; // ✅ NEW
 
 const queryClient = new QueryClient();
 
@@ -68,7 +69,7 @@ const App = () => (
               <Route path="feedback" element={<FeedbackPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="corporate/*" element={<CorporateDashboard />} />
-
+              <Route path="trip-assistance" element={<TripAssistancePage />} />
             </Route>
               {/* ✅ Standalone full-screen route for tracking */}
               <Route path="/trips/track" element={<TrackTripPage />} />
