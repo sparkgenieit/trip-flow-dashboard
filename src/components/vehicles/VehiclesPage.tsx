@@ -32,8 +32,10 @@ interface Vehicle {
   vehicleTypeId: number;
   vendorId: number | null;
   vendor?: {
-    id: number;
-    companyName: string;
+      id: number;
+      name: string;
+      companyReg: string;
+      userId: number;
   };
 }
 
