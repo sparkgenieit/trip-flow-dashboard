@@ -54,7 +54,7 @@ const TrackTripPage = () => {
       setCurrentIndex((prev) =>
         prev + 1 < updates.length ? prev + 1 : prev
       );
-    }, 30000); // Simulates 1 hour every 5 seconds
+    }, 10000); // Simulates 1 hour every 5 seconds
 
     return () => clearInterval(interval);
   }, [updates]);
