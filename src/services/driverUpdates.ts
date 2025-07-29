@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { mockDriverUpdates } from '@/pages/trips/mockRoute'; // ✅ Import here
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL + '/driver-updates'; // ✅ Correct
 
@@ -29,32 +30,9 @@ export const getDriverUpdatesByTrip = async (tripId: number): Promise<DriverUpda
 export const seedMockDriverUpdates = async (tripId: number, driverId: number) => {
   const token = localStorage.getItem('authToken');
 
-  const updates = [
-    {
-      latitude: 12.9716,
-      longitude: 77.5946,
-      statusMessage: 'Started from Bangalore',
-    },
-    {
-      latitude: 13.0346,
-      longitude: 77.5971,
-      statusMessage: 'Reached Hebbal',
-    },
-    {
-      latitude: 13.0666,
-      longitude: 77.6101,
-      statusMessage: 'Crossed Airport Road',
-    },
-    {
-      latitude: 13.0812,
-      longitude: 77.6204,
-      statusMessage: 'Approaching Airport',
-    },
-  ];
-
   const response = await axios.post(
     `${API_BASE}/mock`,
-    { tripId, driverId, updates },
+    { tripId, driverId, updates: mockDriverUpdates }, // ✅ Use imported mock
     {
       headers: {
         Authorization: `Bearer ${token}`,
