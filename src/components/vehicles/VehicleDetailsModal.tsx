@@ -13,7 +13,7 @@ interface Vehicle {
   id: number;
   name: string;
   model: string;
-  image: string;
+  image: string[];
   capacity: number;
   registrationNumber: string;
   price: number;
@@ -32,7 +32,7 @@ interface VehicleDetailsModalProps {
 
 const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, onClose }) => {
   if (!vehicle) return null;
-
+  
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
@@ -50,6 +50,21 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ vehicle, onCl
           <div><strong>Capacity:</strong> {vehicle.capacity} seater</div>
           <div><strong>Last Serviced:</strong> {vehicle.lastServicedDate ? new Date(vehicle.lastServicedDate).toLocaleDateString() : 'N/A'}</div>
           <div><strong>Vendor ID:</strong> {vehicle.vendorId ?? 'Independent'}</div>
+          {vehicle.image && Array.isArray(vehicle.image) && vehicle.image.length > 0 && (
+  <div className="space-y-1 mt-2">
+    <strong>Vehicle Images:</strong>
+    <div className="flex gap-2 mt-1 flex-wrap">
+      {vehicle.image.map((img, idx) => (
+        <img
+          key={idx}
+          src={`${import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')}/${img.replace(/^\/+/, '')}`}
+          alt={`vehicle-${idx}`}
+          className="w-24 h-24 object-cover border rounded"
+        />
+      ))}
+    </div>
+  </div>
+)}
         </div>
 
         <DialogFooter>
