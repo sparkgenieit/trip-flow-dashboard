@@ -23,6 +23,8 @@ export interface DriverFormInput {
   vendorId?: number | null;
   assignedVehicleId?: number | null;
   userId?: number;
+  licenseImage?: string;
+  rcImage?: string;
 }
 
 
@@ -59,7 +61,7 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
 useEffect(() => {
   fetchVendorsAndVehicles();
 
-    if (driver) {
+  if (driver) {
     setFormData({
       fullName: driver.fullName,
       phone: driver.phone,
@@ -71,10 +73,17 @@ useEffect(() => {
       vendorId: driver.vendorId ?? undefined,
       assignedVehicleId: driver.assignedVehicleId ?? undefined,
       userId: driver.userId ?? undefined,
-      id: driver.id
+      id: driver.id,
     });
-  }
 
+    const baseURL = import.meta.env.VITE_API_BASE_URL;
+    if (driver.licenseImage) {
+      setLicensePreview(`${baseURL}/${driver.licenseImage}`);
+    }
+    if (driver.rcImage) {
+      setRcPreview(`${baseURL}/${driver.rcImage}`);
+    }
+  }
 }, [driver]);
 
 const fetchVendorsAndVehicles = async () => {
@@ -212,14 +221,17 @@ const fetchVendorsAndVehicles = async () => {
               accept="image/*"
               onChange={(e) => handleFileChange(e, setLicenseImage, setLicensePreview)}
             />
-            {licensePreview && (
+            {licensePreview ? (
               <img
                 src={licensePreview}
                 alt="License Preview"
                 className="w-24 h-24 mt-2 object-cover rounded border"
               />
+            ) : (
+              <p className="text-xs text-gray-500 italic">No preview available</p>
             )}
           </div>
+
 
           {/* ✅ RC Image Upload */}
           <div className="space-y-2">
@@ -230,14 +242,17 @@ const fetchVendorsAndVehicles = async () => {
               accept="image/*"
               onChange={(e) => handleFileChange(e, setRcImage, setRcPreview)}
             />
-            {rcPreview && (
+            {rcPreview ? (
               <img
                 src={rcPreview}
                 alt="RC Preview"
                 className="w-24 h-24 mt-2 object-cover rounded border"
               />
+            ) : (
+              <p className="text-xs text-gray-500 italic">No preview available</p>
             )}
           </div>
+
 
    {!isVendor && (
   <div className="space-y-2">

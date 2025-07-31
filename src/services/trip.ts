@@ -1,32 +1,42 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL + '/admin/trips';
+const API_BASE = import.meta.env.VITE_API_BASE_URL + '/trips';
 
 export interface Trip {
-  id: string;
-  start_time: string;
-  end_time: string;
-  start_location: string;
-  end_location: string;
-  actual_distance: number;
+  id: number;
+  startTime: string;
+  endTime?: string;
+  distance?: number;
+  actual_distance?: number;
+  start_location?: string;
+  end_location?: string;
   status: string;
-  breakdown_reported: boolean;
-  breakdown_notes: string;
-  bookings: {
-    pickup_location: string;
-    dropoff_location: string;
-    profiles: {
-      full_name: string;
-    };
+  breakdownReported: boolean;
+  breakdownNotes?: string;
+
+  booking?: {
+    pickupAddress?: { address: string };
+    dropAddress?: { address: string };
+    user?: { name: string };
   };
-  drivers: {
-    profiles: {
-      full_name: string;
-    };
+
+  driver?: {
+    id: number;
+    fullName: string;
+    profiles?: { full_name: string };
   };
-  vehicles: {
-    vehicle_number: string;
-  };
+
+  vehicle?: { registrationNumber: string };
+
+  assistances?: {
+    id: number;
+    subject: string;
+    description: string;
+    location: string;
+    createdAt: string;
+    reply: string | null;
+    messageStatus: 'READ' | 'UNREAD';
+  }[];
 }
 
 // ✅ Fetch all trips

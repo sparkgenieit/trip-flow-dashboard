@@ -7,8 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Filter, MapPin, Clock, AlertTriangle, Phone, MapIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getTrips } from '@/services/trip';
+import TripAssistanceForm, { TripAssistanceFormData } from './TripAssistanceForm';
 import ReactModal from 'react-modal';
 import GoogleMapReact from 'google-map-react';
+import { useNavigate } from 'react-router-dom';
 
 
 interface Trip {
@@ -16,6 +18,9 @@ interface Trip {
   startTime: string;
   endTime?: string;
   distance?: number;
+  actual_distance?: number;         // ✅ Add this
+  start_location?: string;          // ✅ Add this
+  end_location?: string;            // ✅ Add this
   status: string;
   breakdownReported: boolean;
   breakdownNotes?: string;
@@ -24,19 +29,46 @@ interface Trip {
     dropAddress?: { address: string };
     user?: { name: string };
   };
-  driver?: { fullName: string };
+  driver?: {
+  id: number;
+  fullName: string;
+  profiles?: { full_name: string };
+};
   vehicle?: { registrationNumber: string };
+  assistances?: {
+      id: number;
+      subject: string;
+      description: string;
+      location: string;
+      createdAt: string;
+      reply: string | null;
+      messageStatus: 'READ' | 'UNREAD';
+  }[];
 }
 
 const TripsPage = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [trackTripId, setTrackTripId] = useState<number | null>(null);
+  const [trackModalOpen, setTrackModalOpen] = useState(false);
+  const [tripForAssistance, setTripForAssistance] = useState<Trip | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { toast } = useToast();
+
 
   useEffect(() => {
     fetchTrips();
   }, []);
+
+  useEffect(() => {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    setUserRole(payload?.role || null);
+  }
+}, []);
 
     const fetchTrips = async () => {
     try {
@@ -104,9 +136,6 @@ const TrackTripModal: React.FC<TrackTripModalProps> = ({ isOpen, onClose, tripId
   );
 };
 
-const [trackTripId, setTrackTripId] = useState<number | null>(null);
-const [trackModalOpen, setTrackModalOpen] = useState(false);
-
 const handleTrackTrip = (tripId: number) => {
   setTrackTripId(tripId);
   setTrackModalOpen(true);
@@ -124,14 +153,21 @@ const handleTrackTrip = (tripId: number) => {
     }
   };
 
-  const handleTripAssistance = (tripId: string) => {
+const handleTripAssistance = (trip: Trip) => {
+  if (userRole === 'DRIVER') {
+    setTripForAssistance(trip);
+  } else if (userRole === 'VENDOR') {
+    window.open(`/trip-assistance?tripId=${trip.id}`, '_blank');
+  } else {
     toast({
-      title: "Trip Assistance",
-      description: "Emergency assistance has been notified for this trip",
+      title: 'Access Denied',
+      description: 'Only drivers or vendors can access trip assistance.',
+      variant: 'destructive',
     });
-  };
+  }
+};
 
-  const handleContactDriver = (tripId: string) => {
+  const handleContactDriver = (tripId: number) => {
     toast({
       title: "Contacting Driver",
       description: "Connecting you with the driver...",
@@ -141,7 +177,8 @@ const handleTrackTrip = (tripId: number) => {
   const filteredTrips = trips.filter(trip =>
     trip.start_location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     trip.end_location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trip.bookings?.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    trip.booking?.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+
   );
 
   if (loading) {
@@ -179,13 +216,13 @@ const handleTrackTrip = (tripId: number) => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">
-                  {trip.bookings?.profiles?.full_name || 'Unknown Customer'}
+                  {trip.booking?.user?.name || 'Unknown Customer'}
                 </CardTitle>
                 <div className="flex space-x-2">
                   <Badge variant={getStatusColor(trip.status)}>
                     {trip.status}
                   </Badge>
-                  {trip.breakdown_reported && (
+                  {trip.breakdownReported && (
                     <Badge variant="destructive" className="flex items-center space-x-1">
                       <AlertTriangle className="h-3 w-3" />
                       <span>Breakdown</span>
@@ -200,21 +237,21 @@ const handleTrackTrip = (tripId: number) => {
                   <MapPin className="h-4 w-4 text-green-500" />
                   <div>
                     <span className="font-medium">Start:</span>
-                    <p className="truncate">{trip.start_location || trip.bookings?.pickup_location}</p>
+                    <p className="truncate">{trip.start_location || trip.booking?.pickupAddress?.address || 'Unknown Pickup'}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <MapPin className="h-4 w-4 text-red-500" />
                   <div>
                     <span className="font-medium">End:</span>
-                    <p className="truncate">{trip.end_location || trip.bookings?.dropoff_location}</p>
+                    <p className="truncate">{trip.start_location || trip.booking?.dropAddress?.address || 'Unknown drop'}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Clock className="h-4 w-4 text-blue-500" />
                   <div>
                     <span className="font-medium">Started:</span>
-                    <p>{trip.start_time ? new Date(trip.start_time).toLocaleString() : 'Not started'}</p>
+                    <p>{trip.startTime ? new Date(trip.startTime).toLocaleString() : 'Not started'}</p>
                   </div>
                 </div>
                 <div>
@@ -224,29 +261,44 @@ const handleTrackTrip = (tripId: number) => {
               </div>
               
               <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                {trip.drivers && (
+                {trip.driver && (
                   <div>
                     <span className="font-medium">Driver:</span>
-                    <p>{trip.drivers.profiles?.full_name}</p>
+                    <p>{trip.driver.fullName}</p>
                   </div>
                 )}
-                {trip.vehicles && (
+                {trip.vehicle && (
                   <div>
                     <span className="font-medium">Vehicle:</span>
-                    <p>{trip.vehicles.vehicle_number}</p>
+                    <p>{trip.vehicle.registrationNumber}</p>
                   </div>
                 )}
               </div>
 
-              {trip.breakdown_reported && trip.breakdown_notes && (
+              {trip.breakdownReported && trip.breakdownNotes && (
                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
                   <div className="flex items-center space-x-2 text-red-700">
                     <AlertTriangle className="h-4 w-4" />
                     <span className="font-medium">Breakdown Report:</span>
                   </div>
-                  <p className="text-red-600 text-sm mt-1">{trip.breakdown_notes}</p>
+                  <p className="text-red-600 text-sm mt-1">{trip.breakdownNotes}</p>
                 </div>
               )}
+
+              {trip.assistances && trip.assistances.length > 0 && (
+  <div className="bg-red-50 border border-red-300 rounded p-3 my-4">
+    <p className="font-semibold text-red-600">🆘 Assistance Requested</p>
+    <p><strong>Subject:</strong> {trip.assistances[0].subject}</p>
+    <p><strong>Description:</strong> {trip.assistances[0].description}</p>
+    <p><strong>Location:</strong> {trip.assistances[0].location}</p>
+    <p><strong>Status:</strong> {trip.assistances[0].messageStatus}</p>
+    {trip.assistances[0].reply && (
+      <div className="mt-2 bg-green-50 border border-green-300 p-2 rounded">
+        <p className="text-green-700"><strong>Vendor Reply:</strong> {trip.assistances[0].reply}</p>
+      </div>
+    )}
+  </div>
+)}
 
                 <Button
                   size="sm"
@@ -262,14 +314,17 @@ const handleTrackTrip = (tripId: number) => {
                   <Phone className="mr-1 h-3 w-3" />
                   Contact Driver
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant={trip.breakdown_reported ? "destructive" : "outline"}
-                  onClick={() => handleTripAssistance(trip.id)}
+                {userRole === 'DRIVER' || (userRole === 'VENDOR' && trip.assistances?.length > 0) ? (
+                <Button
+                  size="sm"
+                  variant={trip.assistances?.[0]?.messageStatus === 'UNREAD' ? 'destructive' : 'outline'}
+                  onClick={() => handleTripAssistance(trip)}
                 >
                   <AlertTriangle className="mr-1 h-3 w-3" />
                   Trip Assistance
                 </Button>
+              ) : null}
+
                 <Button size="sm" variant="outline">
                   View Details
                 </Button>
@@ -283,6 +338,48 @@ const handleTrackTrip = (tripId: number) => {
                   isOpen={trackModalOpen}
                   onClose={() => setTrackModalOpen(false)}
                   tripId={trackTripId}
+                />
+              )}
+              {tripForAssistance && userRole === 'DRIVER' && (
+                <TripAssistanceForm
+                  open={!!tripForAssistance}
+                  onClose={() => setTripForAssistance(null)}
+                  onSubmit={async (data: TripAssistanceFormData) => {
+                    try {
+                      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/trips/assistance`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+                        },
+                        body: JSON.stringify({
+                          tripId: tripForAssistance.id,
+                          location: data.location,
+                          subject: data.subject,
+                          description: data.description,
+                          driverId: tripForAssistance.driver?.id,
+                        }),
+                      });
+
+                      if (!res.ok) throw new Error('Failed to submit assistance');
+
+                      toast({
+                        title: 'Trip Assistance Sent',
+                        description: 'Help is on the way!',
+                      });
+
+                      navigate(`/dashboard/trip-assistance?tripId=${tripForAssistance.id}`);
+                    } catch (error) {
+                      console.error(error);
+                      toast({
+                        title: 'Error',
+                        description: 'Could not submit trip assistance',
+                        variant: 'destructive',
+                      });
+                    } finally {
+                      setTripForAssistance(null);
+                    }
+                  }}
                 />
               )}
             </div>

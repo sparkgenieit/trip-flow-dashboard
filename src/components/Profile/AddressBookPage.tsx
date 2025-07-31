@@ -197,10 +197,25 @@ const AddressBookPage = () => {
                     value={formState[addr.id]?.pinCode || ''}
                     onChange={(e) => handleChange(e, addr.id)}
                   />
+
+                  <select
+                    name="type"
+                    value={formState[addr.id]?.type || ''}
+                    onChange={(e) => handleChange(e, addr.id)}
+                    className="border rounded px-3 py-2 w-full mt-2"
+                  >
+                    <option value="PICKUP">Pickup</option>
+                    <option value="DROP">Drop</option>
+                    <option value="HOME">Home</option>
+                    <option value="OFFICE">Office</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+
                   <div className="flex gap-3 mt-3">
                     <Button onClick={() => handleSave(addr.id)}>Save</Button>
                     <Button variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
                   </div>
+
                 </>
               ) : (
                 <>

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import DriverForm from './DriverForm';
+import axios from 'axios';
 import type { DriverFormInput } from './DriverForm';
 import {
   Dialog,
@@ -29,6 +30,8 @@ from '@/components/ui/dialog';
   vendorId: number;
   assignedVehicleId: number;
   userId: number;
+  licenseImage?: string; // ✅ newly added
+  rcImage?: string;      // ✅ newly added
 
   vendor?: {
     id: number;
@@ -97,25 +100,40 @@ const DriversPage = () => {
   }
 };
 
-  const handleEdit = (driver: Driver) => {
-  const driverInput: DriverFormInput = {
-    id: driver.id,
-    fullName: driver.fullName,
-    phone: driver.phone,
-    email: driver.email,
-    licenseNumber: driver.licenseNumber,
-    licenseExpiry: driver.licenseExpiry
-      ? new Date(driver.licenseExpiry).toISOString().substring(0, 10)
-      : '',
-    isPartTime: driver.isPartTime,
-    isAvailable: driver.isAvailable,
-    vendorId: driver.vendorId || undefined,
-    assignedVehicleId: driver.assignedVehicleId || undefined,
-    userId: driver.userId,
-  };
+const handleEdit = async (driver: Driver) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/drivers/${driver.id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  setEditingDriver(driverInput);
-  setShowForm(true);
+    const fullDriver = res.data;
+
+    const driverInput: DriverFormInput = {
+      id: fullDriver.id,
+      fullName: fullDriver.fullName,
+      phone: fullDriver.phone,
+      email: fullDriver.email,
+      licenseNumber: fullDriver.licenseNumber,
+      licenseExpiry: fullDriver.licenseExpiry
+        ? new Date(fullDriver.licenseExpiry).toISOString().substring(0, 10)
+        : '',
+      isPartTime: fullDriver.isPartTime,
+      isAvailable: fullDriver.isAvailable,
+      vendorId: fullDriver.vendorId || undefined,
+      assignedVehicleId: fullDriver.assignedVehicleId || undefined,
+      userId: fullDriver.userId,
+      licenseImage: fullDriver.licenseImage,  // ✅ added
+      rcImage: fullDriver.rcImage,            // ✅ added
+    };
+
+    setEditingDriver(driverInput);
+    setShowForm(true);
+  } catch (err) {
+    console.error('Failed to load full driver:', err);
+  }
 };
 
   const handleDelete = async (id: string) => {
@@ -155,7 +173,7 @@ const filteredDrivers = drivers.filter((driver) => {
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading drivers...</div>;
   }
-
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -267,9 +285,31 @@ const filteredDrivers = drivers.filter((driver) => {
             <div><strong>Type:</strong> {viewingDriver.isPartTime ? 'Part Time' : 'Full Time'}</div>
             <div><strong>Vendor:</strong> {viewingDriver.vendor?.name || 'Independent'}</div>
             <div><strong>Vehicle Assigned:</strong> {viewingDriver.assignedVehicle?.registrationNumber || 'Not assigned'}</div>
-          </div>
+          
 
- 
+            {/* ✅ Show Uploaded Image Previews */}
+  {viewingDriver.licenseImage && (
+    <div>
+      <strong>License Image:</strong>
+      <img
+        src={`${import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')}/${viewingDriver.licenseImage.replace(/^\/+/, '')}`}
+        alt="License"
+        className="mt-1 w-32 h-24 rounded border object-cover"
+      />
+    </div>
+  )}
+  {viewingDriver.rcImage && (
+    <div>
+      <strong>RC Image:</strong>
+      <img
+        src={`${import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')}/${viewingDriver.rcImage.replace(/^\/+/, '')}`}
+        alt="RC"
+        className="mt-1 w-32 h-24 rounded border object-cover"
+      />
+    </div>
+  )}
+</div>
+
             <DialogFooter>
               <Button onClick={() => setViewingDriver(null)}>Close</Button>
             </DialogFooter>
