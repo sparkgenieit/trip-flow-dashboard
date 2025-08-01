@@ -94,3 +94,17 @@ export const assignVehicleToBooking = async (
     }
   );
 };
+
+export const assignVehicleToTrip = (tripId: number, vehicleId: number) =>
+  fetch(`${import.meta.env.VITE_API_BASE_URL}/trips/${tripId}/assign-vehicle`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+    },
+    body: JSON.stringify({ vehicleId }),
+  }).then((res) => {
+    if (!res.ok) throw new Error('Failed to assign vehicle');
+    return res.json();
+  });
+
