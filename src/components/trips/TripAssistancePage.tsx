@@ -6,10 +6,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { jwtDecode } from 'jwt-decode';
+import AssignVehicleModal from './ReassignVehicleModal';
+import { assignVehicleToTrip } from '@/services/vehicles';
 
 
 interface Assistance {
   id: number;
+  tripId: number;
   subject: string;
   description: string;
   location: string;
@@ -30,6 +33,8 @@ const TripAssistancePage: React.FC = () => {
   const [error, setError] = useState('');
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<'DRIVER' | 'VENDOR' | 'ADMIN' | null>(null); // ✅ New line
 
@@ -54,18 +59,20 @@ const TripAssistancePage: React.FC = () => {
 
       const data = await res.json();
 
-      if (Array.isArray(data) && data.length > 0) {
-        setAssistance(data[0]);
-        setReplyText(data[0]?.reply || '');
-      } else {
-        setAssistance(null);
-      }
-    } catch {
-      setError('Unable to load assistance data');
-    } finally {
-      setLoading(false);
+ // ✅ HANDLE OBJECT INSTEAD OF ARRAY
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      setAssistance(data); // Directly set the object
+      setReplyText(data.reply || '');
+    } else {
+      setAssistance(null); // fallback if unexpected
     }
-  };
+  } catch {
+    setError('Unable to load assistance data');
+  } finally {
+    setLoading(false);
+  }
+};
+
 useEffect(() => {
   fetchAssistance();
 
@@ -162,6 +169,18 @@ useEffect(() => {
         {submitting ? 'Sending...' : 'Send Reply & Mark as Read'}
       </Button>
     )}
+
+    {userRole === 'VENDOR' && (
+  <button
+    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+    onClick={() => {
+      setSelectedTripId(assistance.tripId);
+      setShowAssignModal(true);
+    }}
+  >
+    Assign Vehicle
+  </button>
+)}
     {assistance.reply && (
       <p className="text-xs text-gray-500 mt-2">
         This message was already replied and marked as read.
@@ -179,10 +198,26 @@ useEffect(() => {
     </div>
   </>
 )}
-
-        
-
       </div>
+
+ {showAssignModal && selectedTripId !== null && assistance?.tripId && (
+  <AssignVehicleModal
+    tripId={selectedTripId}
+    vehicleTypeId={(assistance as any).vehicleTypeId} // ✅ Ensure this field exists
+    open={showAssignModal}
+    onClose={() => {
+      setShowAssignModal(false);
+      setSelectedTripId(null);
+    }}
+    onAssigned={() => {
+      toast({
+        title: 'Success',
+        description: 'Vehicle reassigned successfully.',
+      });
+      fetchAssistance(); // ✅ Re-fetch to reflect assignment
+    }}
+  />
+)}
     </div>
   );
 };

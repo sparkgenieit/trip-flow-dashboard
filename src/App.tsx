@@ -73,7 +73,7 @@ const App = () => (
             </Route>
               {/* ✅ Standalone full-screen route for tracking */}
               <Route path="/trips/track" element={<TrackTripPage />} />
-              
+              <Route path="/trip-assistance" element={<TripAssistancePage />} />
             {/* ✅ NEW: ROLE-SPECIFIC VEHICLE PAGES */}
             <Route
               path="/admin/vehicles"
