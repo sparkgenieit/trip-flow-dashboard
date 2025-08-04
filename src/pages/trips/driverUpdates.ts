@@ -1,6 +1,24 @@
-export const driverUpdates = [
-  { lat: 11.4102, lng: 76.6950, status: 'Mysore reached' },
-  { lat: 11.5610, lng: 76.7130, status: 'Bandipur Forest crossing' },
-  { lat: 11.6400, lng: 76.7370, status: 'Gudalur junction' },
-  { lat: 11.7046, lng: 76.7344, status: 'Ooty completed' },
+// mock/driverUpdates.mock.ts
+
+export const driverUpdateMocks = [
+  {
+    latitude: 12.9716,
+    longitude: 77.5946,
+    statusMessage: 'Started from Bangalore',
+  },
+  {
+    latitude: 13.0346,
+    longitude: 77.5971,
+    statusMessage: 'Reached Hebbal',
+  },
+  {
+    latitude: 13.0666,
+    longitude: 77.6101,
+    statusMessage: 'Crossed Airport Road',
+  },
+  {
+    latitude: 13.0812,
+    longitude: 77.6204,
+    statusMessage: 'Approaching Airport',
+  },
 ];
