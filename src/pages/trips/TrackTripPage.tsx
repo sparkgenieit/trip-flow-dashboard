@@ -28,21 +28,19 @@ const TrackTripPage = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const current = updates[currentIndex];
 
-  const loadUpdates = async () => {
-    try {
-      const data = await getDriverUpdatesByTrip(tripId);
-      if (data.length === 0) {
-        console.log('Seeding mock updates...');
-        await seedMockDriverUpdates(tripId, driverId);
-        const seeded = await getDriverUpdatesByTrip(tripId);
-        setUpdates(seeded);
-      } else {
-        setUpdates(data);
-      }
-    } catch (err) {
-      console.error('❌ Failed to load updates:', err);
-    }
-  };
+// 🔁 Replace this function in TrackTripPage.tsx
+const loadUpdates = async () => {
+  try {
+    console.log('⚠️ Forcing reseed with updated mockRoute data...');
+    await seedMockDriverUpdates(tripId, driverId); // ⛳ Force reseed every time
+    const data = await getDriverUpdatesByTrip(tripId);
+    console.log('🚗 Loaded updates:', data);
+    setUpdates(data);
+  } catch (err) {
+    console.error('❌ Failed to load updates:', err);
+  }
+};
+
 
   useEffect(() => {
     if (tripId) loadUpdates();
