@@ -19,6 +19,7 @@ interface Assistance {
   createdAt: string;
   reply: string | null;
   messageStatus: 'READ' | 'UNREAD';
+  vehicleTypeId?: number;
 }
 
 interface JwtPayload {
@@ -170,17 +171,38 @@ useEffect(() => {
       </Button>
     )}
 
-    {userRole === 'VENDOR' && (
-  <button
-    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-    onClick={() => {
-      setSelectedTripId(assistance.tripId);
-      setShowAssignModal(true);
-    }}
-  >
-    Assign Vehicle
-  </button>
+{userRole === 'VENDOR' && (
+  <div className="mt-4">
+    {assistance?.vehicleTypeId ? (
+      <>
+        {/* If vehicle already assigned and vendor opens modal */}
+        <span className="inline-block bg-green-100 text-green-700 text-xs font-medium px-2 py-1 rounded-full mr-2">
+          Assigned
+        </span>
+        <button
+          className="border border-gray-500 text-gray-700 text-sm px-3 py-1 rounded hover:bg-gray-100"
+          onClick={() => {
+            setSelectedTripId(assistance.tripId);
+            setShowAssignModal(true);
+          }}
+        >
+          Reassign
+        </button>
+      </>
+    ) : (
+      <button
+        className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+        onClick={() => {
+          setSelectedTripId(assistance.tripId);
+          setShowAssignModal(true);
+        }}
+      >
+        Assign Vehicle
+      </button>
+    )}
+  </div>
 )}
+
     {assistance.reply && (
       <p className="text-xs text-gray-500 mt-2">
         This message was already replied and marked as read.

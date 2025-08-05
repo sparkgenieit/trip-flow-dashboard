@@ -97,7 +97,7 @@ export const assignVehicleToBooking = async (
 
 export const assignVehicleToTrip = (tripId: number, vehicleId: number) =>
   fetch(`${import.meta.env.VITE_API_BASE_URL}/trips/${tripId}/assign-vehicle`, {
-    method: 'POST',
+    method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${localStorage.getItem('authToken')}`,

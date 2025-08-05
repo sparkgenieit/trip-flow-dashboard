@@ -157,7 +157,7 @@ const handleTripAssistance = (trip: Trip) => {
   if (userRole === 'DRIVER') {
     setTripForAssistance(trip);
   } else if (userRole === 'VENDOR') {
-    window.open(`/trip-assistance?tripId=${trip.id}`, '_blank');
+    window.open(`/dashboard/trip-assistance?tripId=${trip.id}`, '_blank');
   } else {
     toast({
       title: 'Access Denied',
