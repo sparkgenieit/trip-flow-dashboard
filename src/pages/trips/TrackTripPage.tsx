@@ -68,10 +68,55 @@ const TrackTripPage = () => {
     );
   }
 
-  return (
-    <div style={{ height: '100vh', width: '100%', position: 'relative' }}>
-      <h1 className="text-2xl font-bold p-4">Tracking Trip #{tripId}</h1>
+return (
+  <div className="flex h-screen">
+    {/* Left: Vertical Timeline */}
+    <div className="w-1/3 bg-gray-100 p-4 overflow-y-auto flex flex-col-reverse gap-6">
+      {updates
+  .slice(0, currentIndex + 1)
+  .map((update, idx, visibleUpdates) => {
+    const isActive = idx === visibleUpdates.length - 1;
+    return (
+      <div key={idx} className="flex gap-4 items-start mb-4">
+        {/* Active vertical bar */}
+        <div className="w-2 flex flex-col items-center">
+          <div
+            className={`w-2 rounded-full h-full transition-all duration-300 ${
+              isActive ? 'bg-red-500 animate-pulse' : 'bg-gray-300'
+            }`}
+          />
+        </div>
 
+        {/* Timeline card */}
+        <div
+          className={`rounded-xl shadow-lg p-4 text-sm transition-all duration-300 bg-white w-full ${
+            isActive
+              ? 'border-2 border-red-500 ring-2 ring-red-300 scale-[1.01]'
+              : 'border border-gray-200'
+          }`}
+        >
+          <div className="text-base font-semibold text-gray-800 mb-1">
+            {update.statusMessage}
+          </div>
+          <div className="text-xs text-gray-500 mb-2">
+            {new Date(update.createdAt).toLocaleTimeString()}
+          </div>
+          <div className="text-sm text-gray-700">
+            <strong>Latitude:</strong> {update.latitude.toFixed(5)} <br />
+            <strong>Longitude:</strong> {update.longitude.toFixed(5)} <br />
+            <strong>Trip ID:</strong> {update.tripId} <br />
+            <strong>Driver ID:</strong> {update.driverId}
+          </div>
+        </div>
+      </div>
+    );
+  })}
+
+
+    </div>
+
+    {/* Right: Google Map */}
+    <div className="w-2/3 relative">
       <GoogleMapReact
         bootstrapURLKeys={{ key: 'AIzaSyCx7ABaUaR43JU2bhbyDvAEfLk9t0vvLQI' }}
         center={{ lat: current.latitude, lng: current.longitude }}
@@ -79,52 +124,10 @@ const TrackTripPage = () => {
       >
         <Marker lat={current.latitude} lng={current.longitude} />
       </GoogleMapReact>
-
-      {/* ✅ Floating Driver Update Info Card */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '30px',
-          right: '30px',
-          backgroundColor: 'white',
-          borderRadius: '12px',
-          boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-          padding: '16px',
-          width: '260px',
-          zIndex: 10,
-          fontFamily: 'sans-serif',
-        }}
-      >
-        <div
-          style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}
-        >
-          {current.statusMessage}
-        </div>
-        <div
-          style={{ fontSize: '13px', color: '#4B5563', marginBottom: '4px' }}
-        >
-          <strong>Time:</strong>{' '}
-          {new Date(current.createdAt).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          })}
-        </div>
-        <div style={{ fontSize: '13px', color: '#4B5563' }}>
-          <strong>Latitude:</strong> {current.latitude.toFixed(5)}
-        </div>
-        <div style={{ fontSize: '13px', color: '#4B5563' }}>
-          <strong>Longitude:</strong> {current.longitude.toFixed(5)}
-        </div>
-        <div style={{ fontSize: '13px', color: '#4B5563' }}>
-          <strong>Trip ID:</strong> {current.tripId}
-        </div>
-        <div style={{ fontSize: '13px', color: '#4B5563' }}>
-          <strong>Driver ID:</strong> {current.driverId}
-        </div>
-      </div>
     </div>
-  );
+  </div>
+);
+
 };
 
 export default TrackTripPage;
