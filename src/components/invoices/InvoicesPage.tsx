@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Filter, Download, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getInvoices, generateInvoice } from '@/services/invoice';
+import { downloadInvoicePdf } from '@/services/invoice';
 
 
 interface Invoice {
@@ -68,6 +69,14 @@ const InvoicesPage = () => {
   }
 };
 
+const handleDownload = async (invoiceId: number) => {
+  try {
+    await downloadInvoicePdf(invoiceId);
+  } catch (err) {
+    console.error('Failed to download invoice PDF', err);
+  }
+};
+
  const fetchInvoices = async () => {
   try {
     const data = await getInvoices();
@@ -84,31 +93,6 @@ const InvoicesPage = () => {
   }
 };
   
-   const handleDownloadPdf = async (invoice: Invoice) => {
-  try {
-    const response = await fetch(invoice.pdfUrl);
-    if (!response.ok) throw new Error('Failed to download');
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${invoice.invoiceNumber}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    toast({
-      title: 'Error',
-      description: 'Failed to download PDF',
-      variant: 'destructive',
-    });
-    console.error('PDF download error:', error);
-  }
-};
-
-
   const filteredInvoices = invoices.filter(invoice =>
     invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     invoice.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -193,7 +177,7 @@ const InvoicesPage = () => {
               )}
 
               <div className="mt-4 flex space-x-2">
-  <Button size="sm" variant="outline" onClick={() => handleDownloadPdf(invoice)}>
+  <Button size="sm" variant="outline" onClick={() => handleDownload(invoice.id)}>
     <Download className="mr-2 h-4 w-4" />
     Download PDF
   </Button>

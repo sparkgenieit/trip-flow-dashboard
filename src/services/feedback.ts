@@ -41,3 +41,24 @@ export const getFeedback = async (): Promise<Feedback[]> => {
   return res.data;
 };
 
+export const createFeedback = async (data: {
+  tripId: number;
+  riderId: number;
+  driverId: number;
+  driverRating: number;
+  vehicleRating: number;
+  serviceRating: number;
+  comment: string;
+}) => {
+  const token = localStorage.getItem('authToken');
+  const res = await axios.post(API_BASE, data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+
+

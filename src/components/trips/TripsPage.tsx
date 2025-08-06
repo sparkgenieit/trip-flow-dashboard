@@ -11,6 +11,9 @@ import TripAssistanceForm, { TripAssistanceFormData } from './TripAssistanceForm
 import ReactModal from 'react-modal';
 import GoogleMapReact from 'google-map-react';
 import { useNavigate } from 'react-router-dom';
+import { generateInvoice } from '@/services/invoice';
+import FeedbackForm, { FeedbackFormData } from './FeedbackForm';
+import { createFeedback } from '@/services/feedback';
 
 
 interface Trip {
@@ -53,6 +56,13 @@ const TripsPage = () => {
   const [trackTripId, setTrackTripId] = useState<number | null>(null);
   const [trackModalOpen, setTrackModalOpen] = useState(false);
   const [tripForAssistance, setTripForAssistance] = useState<Trip | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState<any>(null);
+  const [tripInfo, setTripInfo] = useState({
+  from: 'Unknown',
+  to: 'Unknown',
+  driverName: 'N/A',
+});
   const [userRole, setUserRole] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -166,6 +176,51 @@ const handleTripAssistance = (trip: Trip) => {
     });
   }
 };
+
+const handleGenerateInvoice = async (tripId: number) => {
+  try {
+    const response = await generateInvoice(tripId); // calls POST /invoices/generate/:tripId
+    toast({
+      title: 'Invoice generated',
+      description: `Invoice ${response.invoiceNumber} created successfully`,
+    });
+    navigate('/dashboard/invoices'); // or trigger state update
+  } catch (error) {
+    console.error('Error generating invoice:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to generate invoice',
+      variant: 'destructive',
+    });
+  }
+};
+
+const handleFeedback = (trip: any) => {
+  setSelectedTrip(trip);
+  setTripInfo({
+    from: trip.booking?.pickupAddress?.address || 'Unknown',
+    to: trip.booking?.dropAddress?.address || 'Unknown',
+    driverName: trip.driver?.fullName || 'N/A',
+  });
+  setFeedbackOpen(true);
+};
+
+
+const submitFeedback = async (data: FeedbackFormData) => {
+  try {
+    await createFeedback({
+      tripId: selectedTrip.id,
+      riderId: selectedTrip.rider?.id,
+      driverId: selectedTrip.driver?.id,
+      ...data,
+    });
+    toast({ title: 'Feedback submitted successfully' });
+    setFeedbackOpen(false);
+  } catch (err) {
+    toast({ title: 'Failed to submit feedback', variant: 'destructive' });
+  }
+};
+
 
   const handleContactDriver = (tripId: number) => {
     toast({
@@ -324,14 +379,44 @@ const handleTripAssistance = (trip: Trip) => {
                   Trip Assistance
                 </Button>
               ) : null}
-
+                <Button size="sm" variant="outline" onClick={() => handleGenerateInvoice(trip.id)}>
+                  Generate Invoice
+                </Button>
                 <Button size="sm" variant="outline">
                   View Details
                 </Button>
+
+                {(userRole === 'DRIVER' || userRole === 'RIDER') && trip.status === 'completed' && (
+                  <Button size="sm" variant="outline" onClick={() => handleFeedback(trip)}>
+                    Feedback
+                  </Button>
+                )}
+
             </CardContent>
           </Card>
         ))}
       </div>
+
+                {selectedTrip && (
+  <FeedbackForm
+    open={feedbackOpen}
+    onClose={() => setFeedbackOpen(false)}
+    onSubmit={submitFeedback}
+    tripInfo={{
+      from: selectedTrip.start_location || 'Unknown',
+      to: selectedTrip.end_location || 'Unknown',
+      driverName: selectedTrip.driver?.user?.name || 'N/A',
+    }}
+  />
+)}
+
+                {/* ✅ Feedback modal here */}
+                <FeedbackForm
+                  open={feedbackOpen}
+                  onClose={() => setFeedbackOpen(false)}
+                  onSubmit={submitFeedback}
+                  tripInfo={tripInfo}
+                />
 
                 {trackTripId !== null && (
                 <TrackTripModal
