@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { driverUpdateMocks } from '@/pages/trips/driverUpdates';
 
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL + '/driver-updates'; // ✅ Correct
 
 export interface DriverUpdate {
@@ -33,6 +34,7 @@ export const seedMockDriverUpdates = async (tripId: number, driverId: number) =>
   const response = await axios.post(
     `${API_BASE}/mock`,
     { tripId, driverId, updates: driverUpdateMocks },
+
     {
       headers: {
         Authorization: `Bearer ${token}`,
