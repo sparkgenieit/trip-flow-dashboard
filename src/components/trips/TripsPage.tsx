@@ -386,12 +386,11 @@ const submitFeedback = async (data: FeedbackFormData) => {
                   View Details
                 </Button>
 
-                {(userRole === 'DRIVER' || userRole === 'RIDER') && trip.status === 'completed' && (
+                {(userRole === 'DRIVER' || userRole === 'RIDER') && (
                   <Button size="sm" variant="outline" onClick={() => handleFeedback(trip)}>
                     Feedback
                   </Button>
                 )}
-
             </CardContent>
           </Card>
         ))}
