@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { fetchBookings, deleteBooking, confirmBookingIfAssigned  } from '@/services/bookings';
+import { fetchBookings, deleteBooking, confirmBookingIfAssigned } from '@/services/bookings';
 import { useToast } from '@/hooks/use-toast';
 import { Plus } from 'lucide-react';
 import BookingForm from '@/components/bookings/BookingForm';
 import CorporateBookingForm from '@/components/bookings/CorporateBookingForm';
 import AssignVehicleModal from '@/components/bookings/AssignVehicleModal';
 import VendorQuoteListModal from '@/components/bookings/VendorQuoteListModal';
-import { shareBookingWithVendors, fetchQuotesForBooking } from '@/services/quotes';
+import { fetchQuotesForBooking } from '@/services/quotes';
+//import { shareBookingWithVendors, fetchQuotesForBooking } from '@/services/quotes';
+
 import { useNavigate } from 'react-router-dom';
+
 interface Booking {
   id: number;
   fare: number;
@@ -25,11 +28,16 @@ interface Booking {
   customerName: string;
   numVehicles: number;
   vehiclesAssigned: number;
-  trips?: any[]; // ✅ new field from backend
+  trips?: any[];
 }
-  const role = localStorage.getItem('userRole');
-  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
-  const isVendor =  role === 'VENDOR';
+
+const role = localStorage.getItem('userRole');
+const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+const isVendor = role === 'VENDOR';
+
+// ✅ read base URL from env
+const ADMIN_BASE_URL = import.meta.env.VITE_ADMIN_BASE_URL as string;
+
 const BookingsPage = () => {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -98,11 +106,45 @@ const BookingsPage = () => {
     }
   };
 
-  const filteredBookings = bookings.filter((b) =>
-    (b.pickupAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.dropAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.fromCity?.name?.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (statusFilter ? b.status === statusFilter : true)
+  const makeShareUrl = (id: number) => {
+    // ensures no double slashes
+    const base = ADMIN_BASE_URL?.replace(/\/+$/, '') || '';
+    return `${base}/dashboard/bookings/view/?bookingId=${id}`;
+  };
+
+  const handleShare = async (id: number) => {
+    const url = makeShareUrl(id);
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        // Fallback for non-HTTPS or older browsers
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      alert('Share URL copied');
+    } catch (e) {
+      toast({
+        title: 'Copy failed',
+        description: 'Could not copy share URL. Please copy manually.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const filteredBookings = bookings.filter(
+    (b) =>
+      (b.pickupAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        b.dropAddress?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        b.fromCity?.name?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      (statusFilter ? b.status === statusFilter : true)
   );
 
   return (
@@ -157,50 +199,55 @@ const BookingsPage = () => {
               <div>
                 <div className="font-medium">{booking.customerName}</div>
                 <span
-                  className={`text-xs px-2 py-1 rounded-full ${booking.customerType === 'Corporate'
+                  className={`text-xs px-2 py-1 rounded-full ${
+                    booking.customerType === 'Corporate'
                       ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-800'
-                    }`}
+                  }`}
                 >
                   {booking.customerType}
                 </span>
               </div>
+
               <div>
                 🚗 {booking.vehicleType?.name}
                 <br />
                 👥 {booking.numVehicles} required
               </div>
+
               <div>
                 <span className="text-green-700">📍 {booking.pickupAddress?.address}</span>
                 <br />
                 <span className="text-red-700">📍 {booking.dropAddress?.address}</span>
               </div>
+
               <div>
                 🕒 {new Date(booking.pickupDateTime).toLocaleDateString()}
                 <br />
                 {new Date(booking.pickupDateTime).toLocaleTimeString()}
               </div>
-<div className="flex flex-col gap-1 items-start">
-  <span
-    className={`px-2 py-1 rounded text-xs font-medium ${
-      booking.trips && booking.trips.length > 0
-        ? 'bg-green-100 text-green-800'
-        : 'bg-gray-100 text-gray-800'
-    }`}
-  >
-    {booking.trips && booking.trips.length > 0 ? 'Assigned' : 'Not Assigned'}
-  </span>
 
-  {(isVendor) && (
-    <Button
-      variant={booking.trips && booking.trips.length > 0 ? 'outline' : 'default'}
-      size="sm"
-      onClick={() => handleAssign(booking)}
-    >
-      {booking.trips && booking.trips.length > 0 ? 'Reassign' : 'Assign'}
-    </Button>
-  )}
-</div>
+              <div className="flex flex-col gap-1 items-start">
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    booking.trips && booking.trips.length > 0
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {booking.trips && booking.trips.length > 0 ? 'Assigned' : 'Not Assigned'}
+                </span>
+
+                {isVendor && (
+                  <Button
+                    variant={booking.trips && booking.trips.length > 0 ? 'outline' : 'default'}
+                    size="sm"
+                    onClick={() => handleAssign(booking)}
+                  >
+                    {booking.trips && booking.trips.length > 0 ? 'Reassign' : 'Assign'}
+                  </Button>
+                )}
+              </div>
 
               <div>
                 <span
@@ -223,6 +270,7 @@ const BookingsPage = () => {
                 >
                   View
                 </Button>
+
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -231,21 +279,35 @@ const BookingsPage = () => {
                   }}
                 >
                   Edit
-                  </Button>
-                {isAdmin && (               
+                </Button>
+ {/*isAdmin && (               
                 <Button variant="secondary" onClick={async () => {
                   await shareBookingWithVendors(booking.id);
                   toast({ title: 'Shared with vendors' });
                 }}>
                   📤 Share
                 </Button>
+                ) */}
+                {isAdmin && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleShare(booking.id)}
+                    title="Copy shareable URL"
+                  >
+                    📤 Share
+                  </Button>
                 )}
-                <Button variant="outline" onClick={() => {
-                  setQuoteBookingId(booking.id);
-                  setQuoteModalOpen(true);
-                }}>
+
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setQuoteBookingId(booking.id);
+                    setQuoteModalOpen(true);
+                  }}
+                >
                   💬 Quotes
                 </Button>
+
                 <Button variant="destructive" onClick={() => handleDelete(booking.id)}>
                   Delete
                 </Button>
@@ -263,10 +325,9 @@ const BookingsPage = () => {
           numVehicles={assignTarget.numVehicles}
           onClose={() => setAssignModalOpen(false)}
           onAssigned={async () => {
-          await confirmBookingIfAssigned(assignTarget.bookingId); // 🔁 update status
-          await loadBookings(); // reload UI
-        }}
-
+            await confirmBookingIfAssigned(assignTarget.bookingId);
+            await loadBookings();
+          }}
         />
       )}
 
@@ -292,7 +353,7 @@ const BookingsPage = () => {
           open={quoteModalOpen}
           onClose={() => setQuoteModalOpen(false)}
           onApproved={loadBookings}
-          isAdmin={isAdmin} 
+          isAdmin={isAdmin}
         />
       )}
 
