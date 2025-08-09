@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { fetchBookings } from '@/services/bookings';
+import { getBookingById } from '@/services/bookings';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import VendorQuoteFormModal from '@/components/bookings/VendorQuoteFormModal'; // ✅ Ensure this exists
@@ -23,12 +23,11 @@ const ViewBooking: React.FC = () => {
 
     const loadBooking = async () => {
       try {
-        const all = await fetchBookings();
-        const found = all.find((b: any) => b.id === bookingId);
-        if (!found) {
+        const bookingById = await getBookingById(bookingId);
+        if (!bookingById) {
           toast({ title: 'Not Found', description: 'Booking not found', variant: 'destructive' });
         } else {
-          setBooking(found);
+          setBooking(bookingById);
         }
       } catch {
         toast({ title: 'Error', description: 'Could not fetch booking', variant: 'destructive' });
