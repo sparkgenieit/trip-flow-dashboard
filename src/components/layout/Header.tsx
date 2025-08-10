@@ -1,5 +1,4 @@
-
-import React ,{ useState } from 'react';
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,64 +10,59 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Bell, LogOut, User } from 'lucide-react';
+import { Bell, LogOut, User, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 
+type HeaderProps = {
+  onToggleSidebar?: () => void;
+  sidebarCollapsed?: boolean;
+};
 
-const Header = () => {
+const Header: React.FC<HeaderProps> = ({ onToggleSidebar, sidebarCollapsed }) => {
   const { user, signOut } = useAuth();
-  const [profileOpen, setProfileOpen] = useState(false);
 
-  const role = localStorage.getItem('userRole');
+  const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') : undefined;
   const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
   const isVendor = role === 'VENDOR';
 
-
-  const getInitials = (email: string) => {
-    return email.substring(0, 2).toUpperCase();
-  };
+  const getInitials = (email: string) => (email?.substring(0, 2) || 'U').toUpperCase();
 
   return (
-    <>
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6">
       <div className="flex items-center">
-        {isVendor && (
-          <h1 className="text-xl font-semibold text-gray-900">Vendor Dashboard</h1>
-        )}
-        {isAdmin && (
-          <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
-        )}
+        {/* Collapse / expand button */}
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="mr-3 inline-flex items-center justify-center rounded-md p-2 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Toggle sidebar"
+        >
+          {sidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+        </button>
+
+        {isVendor && <h1 className="text-xl font-semibold text-gray-900">Vendor Dashboard</h1>}
+        {isAdmin && <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>}
+        {!isAdmin && !isVendor && <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>}
       </div>
-      
-      <div className="flex items-center space-x-4">
-        <Button variant="ghost" size="icon">
+
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" aria-label="Notifications">
           <Bell className="h-5 w-5" />
         </Button>
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-              <Avatar className="h-10 w-10">
-                <AvatarFallback>
-                  {user?.email ? getInitials(user.email) : 'U'}
-                </AvatarFallback>
+            <button className="flex items-center gap-2 rounded-md p-1 hover:bg-gray-100">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback>{getInitials(user?.email || '')}</AvatarFallback>
               </Avatar>
-            </Button>
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">Admin User</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email}
-                </p>
-              </div>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <User className="h-4 w-4" /> {user?.email || 'User'}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setProfileOpen(true)}>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={signOut}>
+            <DropdownMenuItem onClick={() => signOut()}>
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>
@@ -76,9 +70,6 @@ const Header = () => {
         </DropdownMenu>
       </div>
     </header>
-   
-  
-    </>
   );
 };
 
