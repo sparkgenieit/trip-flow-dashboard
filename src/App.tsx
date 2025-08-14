@@ -32,6 +32,7 @@ import ChangePasswordPage from "@/components/Profile/ChangePasswordPage";
 import AddressBookPage from "@/components/Profile/AddressBookPage"; // ✅ Add this import
 import TrackTripPage from '@/pages/trips/TrackTripPage';
 import TripAssistancePage from "@/components/trips/TripAssistancePage"; // ✅ NEW
+import VehicleTypesPage from '@/components/vehicle-types/VehicleTypesPage';
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => (
               <Route index element={<DashboardOverview />} />
               <Route path="drivers" element={<DriversPage />} />
               <Route path="vehicles" element={<VehiclesPage />} />
+              <Route path="vehicle-types" element={<VehicleTypesPage />} />
               <Route path="vendors" element={<VendorsPage />} />
               <Route path="bookings" element={<BookingsPage />} />
               <Route path="bookings/view" element={<ViewBooking />} />
