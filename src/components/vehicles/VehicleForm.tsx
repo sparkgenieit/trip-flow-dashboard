@@ -144,27 +144,38 @@ const handleSubmit = async (e: React.FormEvent) => {
   setLoading(true);
 
   try {
-   const formDataToSend = new FormData();
-  formDataToSend.append('name', formData.vehicleNumber);
-  formDataToSend.append('model', formData.type);
-  formDataToSend.append('registrationNumber', formData.vehicleNumber);
-  formDataToSend.append('capacity', String(4));
-  formDataToSend.append('price', String(formData.ratePerKm));
-  formDataToSend.append('originalPrice', String(formData.ratePerKm));
-  formDataToSend.append('comfortLevel', String(formData.comfortLevel));
-  formDataToSend.append('status', String(formData.status));
-  formDataToSend.append('lastServicedDate', formData.lastServicedDate || '');
-  formDataToSend.append('vehicleTypeId', String(formData.typeId)); // ✅ DYNAMIC
+   // inside handleSubmit
+const formDataToSend = new FormData();
+formDataToSend.append('name', formData.vehicleNumber);
+formDataToSend.append('model', formData.type);
+formDataToSend.append('registrationNumber', formData.vehicleNumber);
+formDataToSend.append('capacity', String(4));
+formDataToSend.append('comfortLevel', String(formData.comfortLevel));
+formDataToSend.append('status', String(formData.status));
+if (formData.lastServicedDate) {
+  formDataToSend.append('lastServicedDate', formData.lastServicedDate);
+}
+formDataToSend.append('vehicleTypeId', String(formData.typeId));
 
 if (isAdmin && formData.vendorId) {
   formDataToSend.append('vendorId', String(formData.vendorId));
 }
 
-// ✅ PLACE THIS HERE
-imageFiles.forEach((file) => {
-  formDataToSend.append('images', file);
-});
+// ✅ Use bracket notation so Nest parses an object, and ensure INTEGERS
+const priceInt = Math.trunc(Number(formData.ratePerKm || 0));
+const originalPriceInt = Math.trunc(Number(formData.ratePerKm || 0));
 
+formDataToSend.append('priceSpec[priceType]', 'BASE');
+formDataToSend.append('priceSpec[price]', String(priceInt));
+formDataToSend.append('priceSpec[originalPrice]', String(originalPriceInt));
+formDataToSend.append('priceSpec[currency]', 'INR');
+
+// ⛔️ DO NOT send top-level 'price' or 'originalPrice' anymore
+
+imageFiles.forEach((file) => formDataToSend.append('images', file));
+
+
+    // create or update
     if (vehicle?.id) {
       await updateVehicle(vehicle.id, formDataToSend);
     } else {
@@ -177,11 +188,15 @@ imageFiles.forEach((file) => {
     });
 
     onClose();
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error saving vehicle:', error);
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      'Failed to save vehicle';
     toast({
       title: 'Error',
-      description: 'Failed to save vehicle',
+      description: message,
       variant: 'destructive',
     });
   } finally {

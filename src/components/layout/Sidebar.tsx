@@ -32,6 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
   const adminItems = [
     { name: 'Drivers', href: '/dashboard/drivers', icon: Users },
     { name: 'Vehicles', href: '/dashboard/vehicles', icon: Car },
+    { name: 'Vehicle Types', href: '/dashboard/vehicle-types', icon: Car },
     { name: 'Vendors', href: '/dashboard/vendors', icon: Building2 },
     { name: 'Bookings', href: '/dashboard/bookings', icon: Calendar },
     { name: 'Trips', href: '/dashboard/trips', icon: MapPin },
@@ -43,6 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
 
   const vendorItems = [
     { name: 'Vehicles', href: '/dashboard/vehicles', icon: Car },
+    { name: 'Vehicle Types', href: '/dashboard/vehicle-types', icon: Car },
     { name: 'Drivers', href: '/dashboard/drivers', icon: Users },
     { name: 'Bookings', href: '/dashboard/bookings', icon: Calendar },
     { name: 'Trips', href: '/dashboard/trips', icon: MapPin },
