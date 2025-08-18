@@ -10,6 +10,24 @@ import VehicleTypeForm from './VehicleTypeForm';
 import VehicleTypeDetailsModal from './VehicleTypeDetailsModal';
 import { deleteVehicleType, getVehicleType, getVehicleTypes, type VehicleTypeDTO } from '@/services/vehicleTypes';
 
+// ---- helpers to build an absolute image URL and handle legacy shapes
+const API_BASE =
+  (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
+
+const toAbs = (p: string) =>
+  /^https?:\/\//i.test(p)
+    ? p
+    : `${API_BASE}/${p.replace(/\\/g, '/').replace(/^\/+/, '')}`;
+
+const coverFor = (image: VehicleTypeDTO['image']): string => {
+  // Accept string | {url|dataUrl} | string[]
+  let first: any = Array.isArray(image) ? image[0] : image;
+  if (!first) return '';
+  if (typeof first === 'object') first = first.url || first.dataUrl || '';
+  if (!first || typeof first !== 'string') return '';
+  return toAbs(first);
+};
+
 export default function VehicleTypesPage() {
   const [items, setItems] = useState<VehicleTypeDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,9 +125,7 @@ export default function VehicleTypesPage() {
           <div className="col-span-full text-sm text-muted-foreground">No results</div>
         ) : (
           filtered.map((it) => {
-            const imgs = Array.isArray(it.image) ? it.image : it.image ? [it.image] : [];
-            const cover = imgs[0]?.url ?? imgs[0]?.dataUrl; // supports base64 dataUrl too
-
+            const cover = coverFor(it.image);
 
             return (
               <Card key={it.id} className="cursor-pointer hover:shadow-md transition-shadow">
@@ -120,20 +136,28 @@ export default function VehicleTypesPage() {
                       <Badge variant="outline">{it.seatingCapacity} Seats</Badge>
                     </div>
                   </div>
-                  <CardDescription>Rate: {it.estimatedRatePerKm} / km • Base: {it.baseFare}</CardDescription>
+                  <CardDescription>
+                    Rate: {it.estimatedRatePerKm} / km • Base: {it.baseFare}
+                  </CardDescription>
                 </CardHeader>
+
                 <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div className="h-24">
-                      {cover ? (
-                        <img src={cover} alt={imgs[0]?.alt || it.name} className="h-24 w-full rounded border object-cover" />
-                      ) : (
-                        <div className="h-24 w-full rounded border flex items-center justify-center text-xs text-gray-500">
-                          No image
-                        </div>
-                      )}
-                    </div>
+                  {/* Image area */}
+                  <div className="h-24 w-full rounded-md border bg-muted/30 overflow-hidden flex items-center justify-center">
+                    {cover ? (
+                      <img
+                        src={cover}
+                        alt={it.name}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs text-gray-500">No image</span>
+                    )}
                   </div>
+
                   <div className="mt-4 flex space-x-2">
                     <Button size="sm" variant="outline" onClick={() => handleEditBrief(it)}>
                       Edit

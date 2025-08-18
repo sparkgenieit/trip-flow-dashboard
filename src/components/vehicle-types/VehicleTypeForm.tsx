@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import type { VehicleTypeDTO } from '@/services/vehicleTypes';
-import { createVehicleType, updateVehicleType, uploadVehicleTypeImage  } from '@/services/vehicleTypes';
+import { createVehicleType, updateVehicleType } from '@/services/vehicleTypes';
 
 interface Props {
   vehicleType?: VehicleTypeDTO | null;
@@ -30,19 +30,23 @@ export default function VehicleTypeForm({ vehicleType, onClose }: Props) {
   const [baseFare, setBaseFare] = useState<number>(vehicleType?.baseFare ?? 0);
   const [seatingCapacity, setSeats] = useState<number>(vehicleType?.seatingCapacity ?? 4);
 
-  // ---- Single image like Driver edit ----
-  // use existing image url (or dataUrl) if present
+  // Support backends that store image as a plain string path (recommended)
+  // or older shapes like { url } / { dataUrl } / string[]
   const initialImageSrc = useMemo(() => {
-    const img = Array.isArray(vehicleType?.image)
+    const img: any = Array.isArray(vehicleType?.image)
       ? vehicleType?.image?.[0]
-      : vehicleType?.image || undefined;
-    return (img as any)?.url || (img as any)?.dataUrl || '';
+      : (vehicleType?.image as any);
+
+    if (!img) return '';
+    if (typeof img === 'string') return img;                // e.g. "uploads/vehicle-types/xyz.jpg" or full URL
+    if (typeof img === 'object') return img.url || img.dataUrl || '';
+    return '';
   }, [vehicleType?.image]);
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>(initialImageSrc);
 
-  // revoke object URLs on unmount
+  // revoke object URLs on unmount or change
   useEffect(() => {
     return () => {
       if (preview?.startsWith('blob:')) URL.revokeObjectURL(preview);
@@ -54,7 +58,7 @@ export default function VehicleTypeForm({ vehicleType, onClose }: Props) {
     setFile(f);
     if (f) {
       const url = URL.createObjectURL(f);
-      setPreview((old) => {
+      setPreview(old => {
         if (old?.startsWith('blob:')) URL.revokeObjectURL(old);
         return url;
       });
@@ -66,30 +70,29 @@ export default function VehicleTypeForm({ vehicleType, onClose }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // Build payload
-    const payload: Partial<VehicleTypeDTO> = {
-      name: name.trim(),
-      estimatedRatePerKm: Number(estimatedRatePerKm),
-      baseFare: Number(baseFare),
-      seatingCapacity: Number(seatingCapacity),
-    };
+    // Build multipart form-data for inline upload
+    const fd = new FormData();
+    fd.append('name', name.trim());
+    fd.append('estimatedRatePerKm', String(Number(estimatedRatePerKm)));
+    fd.append('baseFare', String(Number(baseFare)));
+    fd.append('seatingCapacity', String(Number(seatingCapacity)));
 
-    // If a new file is picked, store as base64 dataUrl under image.url so <img src> works.
-    // If you already have an upload API (like in Driver), upload here and set { url: uploadedUrl } instead.
+    // If user picked a new file, send it. Else:
+    // - on UPDATE: omit 'image' so backend keeps existing value
+    // - on CREATE: optionally allow using an existing URL/path if present (rare)
     if (file) {
-    const { url } = await uploadVehicleTypeImage(file);
-    payload.image = { url };
-    } else if (initialImageSrc) {
-    // keep existing URL if user didn’t change it
-    payload.image = { url: initialImageSrc };
+      fd.append('image', file); // field name must be "image"
+    } else if (!isEditing && initialImageSrc) {
+      // only for create when you already have a URL/path to keep
+      fd.append('image', initialImageSrc);
     }
 
     try {
       if (isEditing && vehicleType?.id) {
-        await updateVehicleType(vehicleType.id, payload);
+        await updateVehicleType(vehicleType.id, fd); // must support FormData
         toast({ title: 'Updated', description: 'Vehicle type updated.' });
       } else {
-        await createVehicleType(payload);
+        await createVehicleType(fd); // must support FormData
         toast({ title: 'Created', description: 'Vehicle type created.' });
       }
       onClose();
@@ -152,7 +155,7 @@ export default function VehicleTypeForm({ vehicleType, onClose }: Props) {
             </div>
           </div>
 
-          {/* ---- Single image input (like Driver) ---- */}
+          {/* ---- Single image input ---- */}
           <div className="rounded border p-3">
             <Label className="mb-2 block">Image</Label>
             <Input type="file" accept="image/*" onChange={onFileChange} />
