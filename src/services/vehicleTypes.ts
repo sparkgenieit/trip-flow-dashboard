@@ -1,53 +1,67 @@
+// src/services/vehicleTypes.ts
 import axios from 'axios';
 
-const API = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'http://localhost:4000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL + '/vehicle-types';
 
-const client = axios.create({ baseURL: API });
-
-client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) config.headers = { ...(config.headers || {}), Authorization: `Bearer ${token}` };
-  return config;
-});
-
+// DTO (server returns this shape)
 export interface VehicleTypeDTO {
   id?: number;
   name: string;
   estimatedRatePerKm: number;
   baseFare: number;
   seatingCapacity: number;
-  image?: any; // Json or Json[]
+  image?: string; // stored as a single path string, e.g. "uploads/vehicle-types/xxx.jpg"
 }
 
-export async function getVehicleTypes(): Promise<VehicleTypeDTO[]> {
-  const { data } = await client.get('/vehicle-types');
-  return data;
+// Helpers
+function authHeaders(extra?: Record<string, string>) {
+  const token = localStorage.getItem('authToken');
+  return {
+    ...(extra || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
-export async function getVehicleType(id: number): Promise<VehicleTypeDTO> {
-  const { data } = await client.get(`/vehicle-types/${id}`);
-  return data;
-}
+export const createVehicleType = async (formData: FormData) => {
+  const res = await axios.post(API_BASE, formData, {
+    headers: authHeaders({ 'Content-Type': 'multipart/form-data' }),
+    withCredentials: true,
+  });
+  return res.data as VehicleTypeDTO;
+};
 
-export async function createVehicleType(payload: Partial<VehicleTypeDTO>): Promise<VehicleTypeDTO> {
-  const { data } = await client.post('/vehicle-types', payload);
-  return data;
-}
+export const updateVehicleType = async (id: number, formData: FormData) => {
+  const res = await axios.patch(`${API_BASE}/${id}`, formData, {
+    headers: authHeaders({ 'Content-Type': 'multipart/form-data' }),
+    withCredentials: true,
+  });
+  return res.data as VehicleTypeDTO;
+};
 
-export async function updateVehicleType(id: number, payload: Partial<VehicleTypeDTO>): Promise<VehicleTypeDTO> {
-  const { data } = await client.patch(`/vehicle-types/${id}`, payload);
-  return data;
-}
+// LIST all
+export const getVehicleTypes = async () => {
+  const res = await axios.get(API_BASE, {
+    headers: authHeaders(),
+    withCredentials: true,
+  });
+  return res.data as VehicleTypeDTO[];
+};
 
-export async function deleteVehicleType(id: number): Promise<void> {
-  await client.delete(`/vehicle-types/${id}`);
-}
+// GET one
+export const getVehicleType = async (id: number) => {
+  const res = await axios.get(`${API_BASE}/${id}`, {
+    headers: authHeaders(),
+    withCredentials: true,
+  });
+  return res.data as VehicleTypeDTO;
+};
 
-export async function uploadVehicleTypeImage(file: File): Promise<{ url: string }> {
-  const formData = new FormData();
-  formData.append('file', file);
+// DELETE
+export const deleteVehicleType = async (id: number) => {
+  const res = await axios.delete(`${API_BASE}/${id}`, {
+    headers: authHeaders(),
+    withCredentials: true,
+  });
+  return res.data as { message: string };
+};
 
-  // Let axios set the multipart boundary automatically (do NOT set Content-Type manually)
-  const { data } = await client.post('/vehicle-types/upload', formData);
-  return data; // { url: 'http://<host>/uploads/vehicle-types/<filename>' }
-}

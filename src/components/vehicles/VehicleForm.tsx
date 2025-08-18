@@ -1,3 +1,4 @@
+// src/components/vehicles/VehicleForm.tsx
 import React, { useState, useEffect } from 'react';
 import { createVehicle, updateVehicle } from '@/services/vehicles';
 import { Button } from '@/components/ui/button';
@@ -21,11 +22,18 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { fetchAllVendors } from '@/services/vendor';
 
+interface Vendor {
+  id: number;
+  name: string;
+  companyReg: string;
+  userId: number;
+}
+
 interface Vehicle {
   id: number;
   name: string;
   model: string;
-  image: string;
+  image: string | string[]; // ← allow single or multiple (backend may return either)
   capacity: number;
   registrationNumber: string;
   price: number;
@@ -35,20 +43,21 @@ interface Vehicle {
   lastServicedDate: string;
   vehicleTypeId: number;
   vendorId: number | null;
-  vendor?: Vendor; // ✅ Add this line
-}
-
-interface Vendor {
-  id: number;
-  name: string;
-  companyReg: string;
-  userId: number;
+  vendor?: Vendor;
 }
 
 interface VehicleFormProps {
   vehicle?: Vehicle;
   onClose: () => void;
 }
+
+const API_BASE =
+  (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
+
+const toSrc = (p: string) =>
+  /^https?:\/\//i.test(p)
+    ? p
+    : `${API_BASE}/${String(p).replace(/\\/g, '/').replace(/^\/+/, '')}`;
 
 const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   const [formData, setFormData] = useState({
@@ -63,147 +72,154 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   });
   const [vehicleTypes, setVehicleTypes] = useState<any[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
+
+  // New files picked now
   const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]); // only for newly selected files
+
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const role = localStorage.getItem('userRole');
   const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
-  const isVendor =  role === 'VENDOR';
-
-useEffect(() => {
-  if (isAdmin) {
-    fetchVendors();
-  }
-}, [isAdmin]);
-
-useEffect(() => {
-  if (!vehicle || vehicleTypes.length === 0) return;
-  setFormData({
-    vehicleNumber: vehicle.registrationNumber ?? '',
-    typeId: String(vehicle.vehicleTypeId || ''),
-    type: vehicle.model ?? '',
-    comfortLevel: vehicle.comfortLevel?.toString() ?? '',
-    ratePerKm: vehicle.price?.toString() ?? '',
-    status: vehicle.status ?? 'available',
-    vendorId: (
-      vehicle.vendorId ??
-      vehicle.vendor?.id ??
-      ''
-    ).toString(),
-    lastServicedDate: vehicle.lastServicedDate
-      ? vehicle.lastServicedDate.split('T')[0]
-      : '',
-  });
-  // ✅ Pre-fill image preview from existing image URL(s)
-  if (vehicle.image && Array.isArray(vehicle.image)) {
-    const previews = vehicle.image.map(
-      (img) => `${import.meta.env.VITE_API_BASE_URL}/${img}`
-    );
-    setImagePreviews(previews);
-  }
-}, [vehicle, vehicleTypes]); // ✅ Waits for both
+  const isVendor = role === 'VENDOR';
 
   useEffect(() => {
-  const fetchVehicleTypes = async () => {
-    const token = localStorage.getItem("authToken");
+    if (isAdmin) {
+      fetchVendors();
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!vehicle || vehicleTypes.length === 0) return;
+    setFormData({
+      vehicleNumber: vehicle.registrationNumber ?? '',
+      typeId: String(vehicle.vehicleTypeId || ''),
+      type: vehicle.model ?? '',
+      comfortLevel: vehicle.comfortLevel?.toString() ?? '',
+      ratePerKm: vehicle.price?.toString() ?? '',
+      status: vehicle.status ?? 'available',
+      vendorId: (
+        vehicle.vendorId ??
+        vehicle.vendor?.id ??
+        ''
+      ).toString(),
+      lastServicedDate: vehicle.lastServicedDate
+        ? vehicle.lastServicedDate.split('T')[0]
+        : '',
+    });
+    // Do NOT pre-fill imagePreviews with existing images; those are shown separately below.
+  }, [vehicle, vehicleTypes]);
+
+  useEffect(() => {
+    const fetchVehicleTypes = async () => {
+      const token = localStorage.getItem('authToken');
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/vehicle-types`, {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : '',
+          },
+        });
+        const data = await res.json();
+        setVehicleTypes(data);
+      } catch (err) {
+        console.error('Failed to fetch vehicle types', err);
+      }
+    };
+
+    fetchVehicleTypes();
+  }, []);
+
+  const fetchVendors = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/vehicle-types`, {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : '',
-        },
+      const res = await fetchAllVendors();
+      setVendors(res || []);
+    } catch (error) {
+      console.error('Error fetching vendors:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load vendors',
+        variant: 'destructive',
       });
-      const data = await res.json();
-      setVehicleTypes(data);
-    } catch (err) {
-      console.error("Failed to fetch vehicle types", err);
     }
   };
 
-  fetchVehicleTypes();
-}, []);
+  // Existing images from server (string or string[])
+  const existingImageUrls = React.useMemo(() => {
+    const imgs = Array.isArray(vehicle?.image)
+      ? vehicle?.image
+      : vehicle?.image
+      ? [vehicle.image]
+      : [];
+    return imgs.map(toSrc);
+  }, [vehicle]);
 
+  // Revoke blob URLs on unmount/change
+  useEffect(() => {
+    return () => {
+      imagePreviews.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u));
+    };
+  }, [imagePreviews]);
 
- const fetchVendors = async () => {
-  try {
-    const res = await fetchAllVendors(); // real API call
-    setVendors(res || []);
-  } catch (error) {
-    console.error('Error fetching vendors:', error);
-    toast({
-      title: 'Error',
-      description: 'Failed to load vendors',
-      variant: 'destructive',
-    });
-  }
-};
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('name', formData.vehicleNumber);
+      formDataToSend.append('model', formData.type);
+      formDataToSend.append('registrationNumber', formData.vehicleNumber);
+      formDataToSend.append('capacity', String(4));
+      formDataToSend.append('comfortLevel', String(formData.comfortLevel));
+      formDataToSend.append('status', String(formData.status));
+      if (formData.lastServicedDate) {
+        formDataToSend.append('lastServicedDate', formData.lastServicedDate);
+      }
+      formDataToSend.append('vehicleTypeId', String(formData.typeId));
 
-  try {
-   // inside handleSubmit
-const formDataToSend = new FormData();
-formDataToSend.append('name', formData.vehicleNumber);
-formDataToSend.append('model', formData.type);
-formDataToSend.append('registrationNumber', formData.vehicleNumber);
-formDataToSend.append('capacity', String(4));
-formDataToSend.append('comfortLevel', String(formData.comfortLevel));
-formDataToSend.append('status', String(formData.status));
-if (formData.lastServicedDate) {
-  formDataToSend.append('lastServicedDate', formData.lastServicedDate);
-}
-formDataToSend.append('vehicleTypeId', String(formData.typeId));
+      if (isAdmin && formData.vendorId) {
+        formDataToSend.append('vendorId', String(formData.vendorId));
+      }
 
-if (isAdmin && formData.vendorId) {
-  formDataToSend.append('vendorId', String(formData.vendorId));
-}
+      // Pricing (server maps priceSpec -> price/originalPrice)
+      const priceInt = Math.trunc(Number(formData.ratePerKm || 0));
+      const originalPriceInt = Math.trunc(Number(formData.ratePerKm || 0));
+      formDataToSend.append('priceSpec[priceType]', 'BASE');
+      formDataToSend.append('priceSpec[price]', String(priceInt));
+      formDataToSend.append('priceSpec[originalPrice]', String(originalPriceInt));
+      formDataToSend.append('priceSpec[currency]', 'INR');
 
-// ✅ Use bracket notation so Nest parses an object, and ensure INTEGERS
-const priceInt = Math.trunc(Number(formData.ratePerKm || 0));
-const originalPriceInt = Math.trunc(Number(formData.ratePerKm || 0));
+      // Attach newly selected images
+      imageFiles.forEach((file) => formDataToSend.append('images', file));
 
-formDataToSend.append('priceSpec[priceType]', 'BASE');
-formDataToSend.append('priceSpec[price]', String(priceInt));
-formDataToSend.append('priceSpec[originalPrice]', String(originalPriceInt));
-formDataToSend.append('priceSpec[currency]', 'INR');
+      if (vehicle?.id) {
+        await updateVehicle(vehicle.id, formDataToSend);
+      } else {
+        await createVehicle(formDataToSend);
+      }
 
-// ⛔️ DO NOT send top-level 'price' or 'originalPrice' anymore
+      toast({
+        title: 'Success',
+        description: vehicle ? 'Vehicle updated successfully' : 'Vehicle created successfully',
+      });
 
-imageFiles.forEach((file) => formDataToSend.append('images', file));
-
-
-    // create or update
-    if (vehicle?.id) {
-      await updateVehicle(vehicle.id, formDataToSend);
-    } else {
-      await createVehicle(formDataToSend);
+      onClose();
+    } catch (error: any) {
+      console.error('Error saving vehicle:', error);
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to save vehicle';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
     }
-
-    toast({
-      title: 'Success',
-      description: vehicle ? 'Vehicle updated successfully' : 'Vehicle created successfully',
-    });
-
-    onClose();
-  } catch (error: any) {
-    console.error('Error saving vehicle:', error);
-    const message =
-      error?.response?.data?.message ||
-      error?.message ||
-      'Failed to save vehicle';
-    toast({
-      title: 'Error',
-      description: message,
-      variant: 'destructive',
-    });
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -228,25 +244,24 @@ imageFiles.forEach((file) => formDataToSend.append('images', file));
             />
           </div>
 
-<div className="space-y-2">
-  <Label>Vehicle Type</Label>
-  <Select
-    value={formData.typeId}
-    onValueChange={(value) => setFormData({ ...formData, typeId: value })}
-  >
-    <SelectTrigger>
-      <SelectValue placeholder="Select vehicle type" />
-    </SelectTrigger>
-    <SelectContent>
-      {vehicleTypes.map((type) => (
-        <SelectItem key={type.id} value={String(type.id)}>
-          {type.name}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
-
+          <div className="space-y-2">
+            <Label>Vehicle Type</Label>
+            <Select
+              value={formData.typeId}
+              onValueChange={(value) => setFormData({ ...formData, typeId: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select vehicle type" />
+              </SelectTrigger>
+              <SelectContent>
+                {vehicleTypes.map((type) => (
+                  <SelectItem key={type.id} value={String(type.id)}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="comfortLevel">Comfort Level (1–5)</Label>
@@ -277,6 +292,7 @@ imageFiles.forEach((file) => formDataToSend.append('images', file));
             />
           </div>
 
+          {/* Vehicle Images */}
           <div className="space-y-2">
             <Label htmlFor="images">Vehicle Images</Label>
             <Input
@@ -287,19 +303,51 @@ imageFiles.forEach((file) => formDataToSend.append('images', file));
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
                 setImageFiles(files);
-                setImagePreviews(files.map(file => URL.createObjectURL(file)));
+                // Revoke old preview URLs then generate new ones
+                setImagePreviews((old) => {
+                  old.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u));
+                  return files.map((file) => URL.createObjectURL(file));
+                });
               }}
             />
+
+            {/* Existing images from server */}
+            {existingImageUrls.length > 0 && (
+              <div className="mt-2">
+                <div className="text-sm font-semibold mb-1">Existing</div>
+                <div className="flex flex-wrap gap-2">
+                  {existingImageUrls.map((src, idx) => (
+                    <img
+                      key={`exist-${idx}`}
+                      src={src}
+                      alt={`existing-${idx}`}
+                      className="w-24 h-24 object-cover border rounded"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* New previews picked now */}
             {imagePreviews.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {imagePreviews.map((src, idx) => (
-                  <img
-                    key={idx}
-                    src={src}
-                    alt={`preview-${idx}`}
-                    className="w-24 h-24 object-cover border rounded"
-                  />
-                ))}
+              <div className="mt-2">
+                <div className="text-sm font-semibold mb-1">Preview</div>
+                <div className="flex flex-wrap gap-2">
+                  {imagePreviews.map((src, idx) => (
+                    <img
+                      key={`new-${idx}`}
+                      src={src}
+                      alt={`new-${idx}`}
+                      className="w-24 h-24 object-cover border rounded"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
