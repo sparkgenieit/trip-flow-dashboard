@@ -97,7 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
       >
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded bg-blue-600" />
-          {!collapsed && <span className="text-lg font-semibold">TripFlow</span>}
+          {!collapsed && <span className="text-lg font-semibold">doTrip</span>}
         </div>
       </div>
 

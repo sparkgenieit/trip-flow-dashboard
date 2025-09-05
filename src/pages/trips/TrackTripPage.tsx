@@ -116,7 +116,7 @@ return (
     {/* Right: Google Map */}
     <div className="w-2/3 relative">
       <GoogleMapReact
-        bootstrapURLKeys={{ key: 'AIzaSyCx7ABaUaR43JU2bhbyDvAEfLk9t0vvLQI' }}
+        bootstrapURLKeys={{ key: 'AIzaSyAOFJg21NyAREYruHAtIAIzNehg7TNbxc8' }}
         center={{ lat: current.latitude, lng: current.longitude }}
         defaultZoom={12}
       >

@@ -6,6 +6,7 @@ export interface BookingPayload {
   pickupLocation: string;
   dropoffLocation: string;
   pickupDateTime: string; // ISO string format for date
+  returnDate?: string;    // NEW: "YYYY-MM-DD" (send only for round trip)
   bookingType: string;
   vehicleTypeId: number;
   estimatedCost: number;
@@ -13,7 +14,7 @@ export interface BookingPayload {
   fromCityId: number;
   toCityId: number;
   fare: number;
-}
+} 
 
 // 🔐 Automatically adds token to every request
 const authHeaders = () => {
