@@ -132,7 +132,7 @@ const TrackTripModal: React.FC<TrackTripModalProps> = ({ isOpen, onClose, tripId
       <h2 className="text-xl font-bold mb-4">Tracking Trip #{tripId}</h2>
       <div style={{ height: '400px', width: '100%' }}>
         <GoogleMapReact
-          bootstrapURLKeys={{ key: 'AIzaSyCx7ABaUaR43JU2bhbyDvAEfLk9t0vvLQI' }}
+          bootstrapURLKeys={{ key: 'AIzaSyAOFJg21NyAREYruHAtIAIzNehg7TNbxc8' }}
           center={{ lat, lng }}
           defaultZoom={15}
         >

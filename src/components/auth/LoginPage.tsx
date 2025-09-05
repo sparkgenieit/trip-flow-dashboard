@@ -60,7 +60,7 @@ const LoginPage = () => {
             <div className="flex justify-center mb-4">
               <Car className="h-12 w-12 text-blue-600" />
             </div>
-            <CardTitle className="text-2xl font-bold">TripFlow Dashboard</CardTitle>
+            <CardTitle className="text-2xl font-bold">doTrip Dashboard</CardTitle>
             <CardDescription>Sign in to manage your car travel platform</CardDescription>
           </CardHeader>
 
