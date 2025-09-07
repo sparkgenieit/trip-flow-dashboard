@@ -1,3 +1,4 @@
+// src/App.tsx
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,10 +30,17 @@ import ViewBooking from "@/components/bookings/ViewBooking";
 
 import ProfilePage from "@/components/Profile/ProfilePage";
 import ChangePasswordPage from "@/components/Profile/ChangePasswordPage";
-import AddressBookPage from "@/components/Profile/AddressBookPage"; // ✅ Add this import
-import TrackTripPage from '@/pages/trips/TrackTripPage';
-import TripAssistancePage from "@/components/trips/TripAssistancePage"; // ✅ NEW
-import VehicleTypesPage from '@/components/vehicle-types/VehicleTypesPage';
+import AddressBookPage from "@/components/Profile/AddressBookPage";
+import TrackTripPage from "@/pages/trips/TrackTripPage";
+import TripAssistancePage from "@/components/trips/TripAssistancePage";
+import VehicleTypesPage from "@/components/vehicle-types/VehicleTypesPage";
+
+// ✅ NEW: Vendor Tabs (wrapper page that renders the tabbed UI)
+import VendorTabsPage from "@/pages/vendor/VendorTabsPage";
+import AddVendorTabsPage from "@/pages/vendor/AddVendorTabsPage";
+import VendorVehicleAvailabilityChartPage from '@/pages/vendor/VehicleAvailabilityChart';
+
+
 
 const queryClient = new QueryClient();
 
@@ -55,11 +63,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             >
+              <Route index element={<DashboardOverview />} />
+
+              {/* Profile */}
               <Route path="profile" element={<ProfilePage />} />
               <Route path="change-password" element={<ChangePasswordPage />} />
-              <Route path="address-book" element={<AddressBookPage />} /> {/* ✅ NEW */}
-              
-              <Route index element={<DashboardOverview />} />
+              <Route path="address-book" element={<AddressBookPage />} />
+
+              {/* Core */}
               <Route path="drivers" element={<DriversPage />} />
               <Route path="vehicles" element={<VehiclesPage />} />
               <Route path="vehicle-types" element={<VehicleTypesPage />} />
@@ -72,10 +83,30 @@ const App = () => (
               <Route path="reports" element={<ReportsPage />} />
               <Route path="corporate/*" element={<CorporateDashboard />} />
               <Route path="trip-assistance" element={<TripAssistancePage />} />
+
+              {/* ✅ NEW: Vendor-centric tabbed editor (matches Booking stepper styles) */}
+              {/* Example: /dashboard/vendors/39/tabs */}
+              <Route
+                path="vendors/:vendorId/tabs"
+                element={<VendorTabsPage />}
+              />
+              <Route path="vendors/new/tabs" element={<AddVendorTabsPage />} />
+              <Route
+                path="vehicle-availability"
+                element={
+                  <ProtectedRoute >
+                    <VendorVehicleAvailabilityChartPage />
+                  </ProtectedRoute>
+                }
+              />
             </Route>
-              {/* ✅ Standalone full-screen route for tracking */}
-              <Route path="/trips/track" element={<TrackTripPage />} />
-              <Route path="/trip-assistance" element={<TripAssistancePage />} />
+
+
+
+            {/* ✅ Standalone full-screen routes */}
+            <Route path="/trips/track" element={<TrackTripPage />} />
+            <Route path="/trip-assistance" element={<TripAssistancePage />} />
+
             {/* ✅ NEW: ROLE-SPECIFIC VEHICLE PAGES */}
             <Route
               path="/admin/vehicles"

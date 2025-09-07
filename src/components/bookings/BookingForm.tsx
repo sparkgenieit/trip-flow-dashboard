@@ -33,6 +33,7 @@ interface BookingFormProps {
   onSuccess: () => void;
 }
 
+
 const BookingForm: React.FC<BookingFormProps> = ({
   booking,
   onClose,
@@ -396,13 +397,13 @@ const payload = {
   personsCount: persons,
 
   fare,
+  ...(tripSlug === 'round-trip' && formData.returnDate
+    ? { returnDate: formData.returnDate }
+    : {}),
+  
 };
 
-// add returnDate only for round-trip
-if (tripSlug === "round-trip" && formData.returnDate) {
-  // send as plain yyyy-mm-dd, or adjust if backend expects ISO midnight
-  payload.returnDate = formData.returnDate;
-}
+
 
       if (booking?.id) {
         await updateBooking(booking.id, payload);

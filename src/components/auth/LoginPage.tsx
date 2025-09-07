@@ -131,7 +131,7 @@ const LoginPage = () => {
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => fillCredentials('9333333333')}
+                    onClick={() => fillCredentials('7000000002')}
                     title="Driver"
                   >
                     <Info className="h-4 w-4 mr-2" />

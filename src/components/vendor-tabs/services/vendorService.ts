@@ -1,0 +1,1 @@
+export async function fetchVendor(id:string){return {id,name:'Demo Vendor'}};
