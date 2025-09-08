@@ -18,6 +18,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Link } from 'react-router-dom';
 
 // ----- Helpers: browser-safe API base + URL joiner -----
 const API_BASE_URL =
@@ -231,10 +232,13 @@ const DriversPage: React.FC = () => {
           <h2 className="text-3xl font-bold tracking-tight">Drivers</h2>
           <p className="text-muted-foreground">Manage your driver fleet</p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Driver
+         <Button asChild>
+          <Link to="/dashboard/drivers/add">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Driver
+          </Link>
         </Button>
+      
       </div>
 
       <div className="flex items-center space-x-4">
@@ -287,9 +291,11 @@ const DriversPage: React.FC = () => {
                 </div>
               </div>
               <div className="mt-4 flex space-x-2">
-                <Button size="sm" variant="outline" onClick={() => handleEdit(driver)}>
-                  Edit
-                </Button>
+                    <Button size="sm" variant="outline" asChild>
+                    <Link to={`/dashboard/drivers/edit/${driver.id}`}>Edit</Link>
+                  </Button>
+
+               
                 <Button size="sm" variant="outline" onClick={() => setViewingDriver(driver)}>
                   View Details
                 </Button>

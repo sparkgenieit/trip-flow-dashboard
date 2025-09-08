@@ -38,6 +38,9 @@ import VehicleTypesPage from "@/components/vehicle-types/VehicleTypesPage";
 // ✅ NEW: Vendor Tabs (wrapper page that renders the tabbed UI)
 import VendorTabsPage from "@/pages/vendor/VendorTabsPage";
 import AddVendorTabsPage from "@/pages/vendor/AddVendorTabsPage";
+
+import EditDriverPage from "@/pages/driver/EditDriverPage";
+import AddDriverPage from "@/pages/driver/AddDriverPage";
 import VendorVehicleAvailabilityChartPage from '@/pages/vendor/VehicleAvailabilityChart';
 
 
@@ -99,6 +102,12 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+
+                <Route
+                path="drivers/edit/:driverId"
+                element={<EditDriverPage />}
+              />
+              <Route path="drivers/add" element={<AddDriverPage />} />
             </Route>
 
 
