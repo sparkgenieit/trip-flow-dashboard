@@ -1,4 +1,4 @@
-// src/components/vehicles/VehicleForm.tsx
+
 // src/components/vehicles/VehicleForm.tsx
 import React, { useState, useEffect } from 'react';
 import { createVehicle, updateVehicle } from '@/services/vehicles';
@@ -93,7 +93,30 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]); // only for newly selected files
 
+  const setSingleImageFile = (file: File | null) => {
+  // Revoke any existing preview blob URLs
+  setImagePreviews((old) => {
+    old.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u));
+    return [];
+  });
+
+  if (file) {
+    const url = URL.createObjectURL(file);
+    setImageFiles([file]);
+    setImagePreviews([url]);
+  } else {
+    setImageFiles([]);
+    setImagePreviews([]);
+  }
+};
+
+const handlePickSingleImage: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+  const file = e.target.files?.[0] ?? null;
+  setSingleImageFile(file);
+};
+
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'vehicle' | 'insurance'>('vehicle');
   const { toast } = useToast();
 
   const role = localStorage.getItem('userRole');
@@ -183,11 +206,12 @@ useEffect(() => {
   }, [vehicle]);
 
   // Revoke blob URLs on unmount/change
-  useEffect(() => {
-    return () => {
-      imagePreviews.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u));
-    };
-  }, [imagePreviews]);
+useEffect(() => {
+  return () => {
+    imagePreviews.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u));
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -271,7 +295,11 @@ useEffect(() => {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="max-h-[70vh] overflow-y-auto pr-2 space-y-4">
-          <Tabs defaultValue="vehicle" className="w-full">
+          <Tabs
+                value={activeTab}
+                onValueChange={(v) => setActiveTab(v as 'vehicle' | 'insurance')}
+                className="w-full"
+              >
             <TabsList className="grid grid-cols-2 w-full">
               <TabsTrigger value="vehicle">Vehicle</TabsTrigger>
               <TabsTrigger value="insurance">Insurance &amp; FC</TabsTrigger>
@@ -333,64 +361,62 @@ useEffect(() => {
                 />
               </div>
 
-              {/* Vehicle Images */}
+              {/* Vehicle Image (single, replace-on-select) */}
               <div className="space-y-2">
-                <Label htmlFor="images">Vehicle Images</Label>
+                <Label htmlFor="image">Vehicle Image</Label>
+
+                {/* Single picker: choosing a new file replaces current preview */}
                 <Input
-                  id="images"
+                  id="image"
                   type="file"
                   accept="image/*"
-                  multiple
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    setImageFiles(files);
-                    setImagePreviews((old) => {
-                      old.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u));
-                      return files.map((file) => URL.createObjectURL(file));
-                    });
-                  }}
+                  onChange={handlePickSingleImage}
                 />
 
-                {/* Existing images from server */}
-                {existingImageUrls.length > 0 && (
-                  <div className="mt-2">
-                    <div className="text-sm font-semibold mb-1">Existing</div>
-                    <div className="flex flex-wrap gap-2">
-                      {existingImageUrls.map((src, idx) => (
-                        <img
-                          key={`exist-${idx}`}
-                          src={src}
-                          alt={`existing-${idx}`}
-                          className="w-24 h-24 object-cover border rounded"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* New previews picked now */}
-                {imagePreviews.length > 0 && (
+                {/* If a new image is picked, show ONLY that preview */}
+                {imagePreviews.length > 0 ? (
                   <div className="mt-2">
                     <div className="text-sm font-semibold mb-1">Preview</div>
-                    <div className="flex flex-wrap gap-2">
-                      {imagePreviews.map((src, idx) => (
-                        <img
-                          key={`new-${idx}`}
-                          src={src}
-                          alt={`new-${idx}`}
-                          className="w-24 h-24 object-cover border rounded"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ))}
+                    <div className="relative inline-block">
+                      <img
+                        src={imagePreviews[0]}
+                        alt="preview"
+                        className="w-24 h-24 object-cover border rounded"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full border bg-white text-sm leading-6 shadow hover:bg-gray-50"
+                        title="Remove"
+                        onClick={() => setSingleImageFile(null)}
+                      >
+                        ×
+                      </button>
                     </div>
                   </div>
+                ) : (
+                  // Otherwise show the current server image (first one), if any
+                  existingImageUrls.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-sm font-semibold mb-1">Current</div>
+                      <img
+                        src={existingImageUrls[0]}
+                        alt="current"
+                        className="w-24 h-24 object-cover border rounded"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Choose a file above to replace the current image.
+                      </p>
+                    </div>
+                  )
                 )}
               </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
@@ -507,14 +533,34 @@ useEffect(() => {
             </TabsContent>
           </Tabs>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+          <DialogFooter className="flex items-center justify-between">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+
+          {activeTab === 'insurance' ? (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setActiveTab('vehicle')}
+              >
+                ← Back
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Saving...' : vehicle ? 'Update' : 'Create'}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              disabled={loading}
+              onClick={() => setActiveTab('insurance')}
+            >
+              Next
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : vehicle ? 'Update' : 'Create'}
-            </Button>
-          </DialogFooter>
+          )}
+        </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

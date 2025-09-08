@@ -22,10 +22,33 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
-// ⤵️ Adjust service names/paths only if your project differs
+// Services (keep all imports together)
 import { createDriver, updateDriverMultipart } from '@/services/drivers';
 import { fetchAllVendors } from '@/services/vendor';
 import { getVehicles } from '@/services/vehicles';
+
+// Browser-safe API base URL (no process.env in browser)
+const API_BASE_URL =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) ||
+  (typeof window !== 'undefined' && (window as any).__API_BASE_URL__) ||
+  '';
+
+function getAuthToken(): string | null {
+  return (
+    localStorage.getItem('token') ||
+    localStorage.getItem('accessToken') ||
+    localStorage.getItem('authToken')
+  );
+}
+
+async function fetchDriverDetail(id: number) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE_URL}/drivers/${id}`, {
+    headers: { Authorization: `Bearer ${token ?? ''}` },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
 
 // ---------- Types ----------
 export interface DriverFormInput {
@@ -57,6 +80,38 @@ export interface DriverFormInput {
   licenseImage?: string;
   rcImage?: string;
   profileImage?: string; // NEW
+}
+
+// Map API driver -> form shape (handles missing/new fields and date-only)
+function mapDriverToForm(d: any): DriverFormInput {
+  return {
+    id: d?.id,
+    fullName: d?.fullName || '',
+    phone: d?.phone || '',
+    email: d?.email || '',
+    licenseNumber: d?.licenseNumber || '',
+    licenseExpiry: d?.licenseExpiry?.split?.('T')?.[0] || '',
+    isPartTime: !!d?.isPartTime,
+    isAvailable: !!d?.isAvailable,
+    vendorId: d?.vendorId ?? undefined,
+    assignedVehicleId: d?.assignedVehicleId ?? undefined,
+    userId: d?.userId ?? undefined,
+
+    whatsappPhone: d?.whatsappPhone || '',
+    altPhone: d?.altPhone || '',
+    licenseIssueDate: d?.licenseIssueDate?.split?.('T')?.[0] || '',
+    dob: d?.dob?.split?.('T')?.[0] || '',
+    gender: d?.gender || '',
+    bloodGroup: d?.bloodGroup || '',
+    aadhaarNumber: d?.aadhaarNumber || '',
+    panNumber: d?.panNumber || '',
+    voterId: d?.voterId || '',
+    address: d?.address || '',
+
+    licenseImage: d?.licenseImage,
+    rcImage: d?.rcImage,
+    profileImage: d?.profileImage,
+  };
 }
 
 interface DriverFormProps {
@@ -129,41 +184,43 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
     })();
   }, []);
 
+  // Prefill for edit: use prop immediately, then hydrate from /drivers/:id for full fields
   useEffect(() => {
-    if (!driver) return;
-    const baseURL =
-      (import.meta as any)?.env?.VITE_API_BASE_URL || (process as any)?.env?.VITE_API_BASE_URL || '';
+    let alive = true;
+    (async () => {
+      if (!driver) return;
 
-    setFormData({
-      id: driver.id,
-      fullName: driver.fullName || '',
-      phone: driver.phone || '',
-      email: driver.email || '',
-      licenseNumber: driver.licenseNumber || '',
-      licenseExpiry: driver.licenseExpiry?.split?.('T')?.[0] || '',
-      isPartTime: !!driver.isPartTime,
-      isAvailable: !!driver.isAvailable,
-      vendorId: driver.vendorId ?? undefined,
-      assignedVehicleId: driver.assignedVehicleId ?? undefined,
-      userId: driver.userId ?? undefined,
+      // 1) Prefill immediately with whatever was passed in
+      const initial = mapDriverToForm(driver);
+      if (!alive) return;
+      setFormData(initial);
 
-      // added fields (optional from API)
-      whatsappPhone: (driver as any).whatsappPhone || '',
-      altPhone: (driver as any).altPhone || '',
-      licenseIssueDate: (driver as any).licenseIssueDate?.split?.('T')?.[0] || '',
-      dob: (driver as any).dob?.split?.('T')?.[0] || '',
-      gender: (driver as any).gender || '',
-      bloodGroup: (driver as any).bloodGroup || '',
-      aadhaarNumber: (driver as any).aadhaarNumber || '',
-      panNumber: (driver as any).panNumber || '',
-      voterId: (driver as any).voterId || '',
-      address: (driver as any).address || '',
-    });
+      // set previews based on initial object
+      setProfilePreview(initial.profileImage ? `${API_BASE_URL}/${initial.profileImage}` : null);
+      setLicensePreview(initial.licenseImage ? `${API_BASE_URL}/${initial.licenseImage}` : null);
+      setRcPreview(initial.rcImage ? `${API_BASE_URL}/${initial.rcImage}` : null);
 
-    if ((driver as any).profileImage)
-      setProfilePreview(`${baseURL}/${(driver as any).profileImage}`);
-    if (driver.licenseImage) setLicensePreview(`${baseURL}/${driver.licenseImage}`);
-    if (driver.rcImage) setRcPreview(`${baseURL}/${driver.rcImage}`);
+      // 2) Fetch full record (includes new fields) to hydrate if list item was “lite”
+      try {
+        if (driver.id) {
+          const full = await fetchDriverDetail(driver.id);
+          if (!alive) return;
+          const hydrated = mapDriverToForm(full);
+          setFormData(hydrated);
+
+          // refresh previews in case paths differ
+          setProfilePreview(hydrated.profileImage ? `${API_BASE_URL}/${hydrated.profileImage}` : null);
+          setLicensePreview(hydrated.licenseImage ? `${API_BASE_URL}/${hydrated.licenseImage}` : null);
+          setRcPreview(hydrated.rcImage ? `${API_BASE_URL}/${hydrated.rcImage}` : null);
+        }
+      } catch (e) {
+        // non-fatal: keep initial values
+        console.warn('Failed to fetch full driver detail', e);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
   }, [driver]);
 
   // ---------- Helpers ----------
@@ -203,7 +260,9 @@ const DriverForm: React.FC<DriverFormProps> = ({ driver, onClose }) => {
       if (formData.voterId) fd.append('voterId', formData.voterId);
       if (formData.address) fd.append('address', formData.address);
 
+      // relations
       if (formData.vendorId) fd.append('vendorId', String(formData.vendorId));
+      // NOTE: backend create expects 'vehicleId'; update can be handled separately or by another endpoint.
       if (formData.assignedVehicleId) fd.append('vehicleId', String(formData.assignedVehicleId));
       if (formData.userId) fd.append('userId', String(formData.userId));
 
