@@ -1,0 +1,1 @@
+export default function VehiclesList({vendorId}:{vendorId?:string}){return <div>Vehicles list for {vendorId}</div>}

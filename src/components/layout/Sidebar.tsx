@@ -34,6 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
     { name: 'Vehicles', href: '/dashboard/vehicles', icon: Car },
     { name: 'Vehicle Types', href: '/dashboard/vehicle-types', icon: Car },
     { name: 'Vendors', href: '/dashboard/vendors', icon: Building2 },
+     { name: 'Vehicle Availability', href: '/dashboard/vehicle-availability', icon: Calendar },
     { name: 'Bookings', href: '/dashboard/bookings', icon: Calendar },
     { name: 'Trips', href: '/dashboard/trips', icon: MapPin },
     { name: 'Invoices', href: '/dashboard/invoices', icon: FileText },
@@ -45,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
   const vendorItems = [
     { name: 'Vehicles', href: '/dashboard/vehicles', icon: Car },
     { name: 'Vehicle Types', href: '/dashboard/vehicle-types', icon: Car },
+     { name: 'Vehicle Availability', href: '/dashboard/vehicle-availability', icon: Calendar },
     { name: 'Drivers', href: '/dashboard/drivers', icon: Users },
     { name: 'Bookings', href: '/dashboard/bookings', icon: Calendar },
     { name: 'Trips', href: '/dashboard/trips', icon: MapPin },
