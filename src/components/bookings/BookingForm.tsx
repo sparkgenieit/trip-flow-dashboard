@@ -27,6 +27,13 @@ import {
 import CityCombobox from "@/components/common/CityCombobox";
 import { v4 as uuidv4 } from "uuid";
 
+// normalize "H:mm" -> "HH:mm"
+const toHHmm = (t: string) => {
+  const m = /^(\d{1,2}):([0-5]\d)/.exec(t || "");
+  if (!m) return "";
+  return `${String(parseInt(m[1], 10)).padStart(2, "0")}:${m[2]}`;
+};
+
 interface BookingFormProps {
   booking?: any;
   onClose: () => void;
@@ -39,26 +46,33 @@ const BookingForm: React.FC<BookingFormProps> = ({
   onClose,
   onSuccess,
 }) => {
-  console.log(booking);
-const [formData, setFormData] = useState({
-  name: booking?.user?.name || "",
-  phone: booking?.user?.phone || "",
-  pickupLocation: booking?.pickupAddress?.address || "",
-  dropoffLocation: booking?.dropAddress?.address || "",
-  pickupDateTime: booking?.pickupDateTime?.slice(0, 16) || "",
-  // NEW: return date (date only). Try booking.returnDate first, else from returnDateTime
-  returnDate: booking?.returnDate || booking?.returnDateTime?.slice(0, 10) || "",
-  bookingType: booking?.bookingType || "individual",
-  vehicleType: String(booking?.vehicleTypeId || ""),
-  estimatedCost: booking?.fare?.toFixed(2) || "",
-  notes: booking?.notes || "",
-  fromCity: String(booking?.fromCity?.id || ""),
-  dropCity: String(booking?.toCity?.id || ""),
-  tripType: String(booking?.tripTypeId || booking?.TripType?.id || ""),
-  stopCities: booking?.stopCities || [],
-  numPersons: booking?.numPersons || 1,
-  numVehicles: booking?.numVehicles || 1,
-});
+  const [formData, setFormData] = useState({
+    name: booking?.user?.name || "",
+    phone: booking?.user?.phone || "",
+    pickupLocation: booking?.pickupAddress?.address || "",
+    dropoffLocation: booking?.dropAddress?.address || "",
+
+    // Admin form still uses a combined datetime for pickup input
+    pickupDateTime: booking?.pickupDateTime?.slice?.(0, 16) || "",
+
+    // Round-trip: date only + NEW time
+    returnDate:
+      booking?.returnDate ||
+      booking?.returnDateTime?.slice?.(0, 10) ||
+      "",
+    returnTime: toHHmm(String(booking?.returnTime || "")) || "",
+
+    bookingType: booking?.bookingType || "individual",
+    vehicleType: String(booking?.vehicleTypeId || ""),
+    estimatedCost: booking?.fare?.toFixed?.(2) || "",
+    notes: booking?.notes || "",
+    fromCity: String(booking?.fromCity?.id || ""),
+    dropCity: String(booking?.toCity?.id || ""),
+    tripType: String(booking?.tripTypeId || booking?.TripType?.id || ""),
+    stopCities: booking?.stopCities || [],
+    numPersons: booking?.numPersons || 1,
+    numVehicles: booking?.numVehicles || 1,
+  });
   const isEditMode = !!booking;
   const [loading, setLoading] = useState(false);
   const [cities, setCities] = useState<any[]>([]);
@@ -172,6 +186,11 @@ const [formData, setFormData] = useState({
   // --- Multi-step (3-tab) state & validation ---
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
+  const selectedTrip = tripTypes.find(
+    (t) => String(t.id) === formData.tripType
+  );
+  const tripSlug = selectedTrip?.slug ?? "";
+
   const validateStep = (s: 1 | 2 | 3) => {
     if (s === 1) {
       if (!formData.tripType) {
@@ -198,9 +217,15 @@ const [formData, setFormData] = useState({
         toast({ title: "Enter Dropoff Location", variant: "destructive" });
         return false;
       }
-      if (tripSlug === "round-trip" && !formData.returnDate) {
-        toast({ title: "Select Return Date", variant: "destructive" });
-        return false;
+      if (tripSlug === "round-trip") {
+        if (!formData.returnDate) {
+          toast({ title: "Select Return Date", variant: "destructive" });
+          return false;
+        }
+        if (!toHHmm(formData.returnTime)) {
+          toast({ title: "Select Return Time", variant: "destructive" });
+          return false;
+        }
       }
       return true;
     }
@@ -224,7 +249,6 @@ const [formData, setFormData] = useState({
     if (validateStep(step)) setStep((s) => (s < 3 ? ((s + 1) as 1 | 2 | 3) : s));
   };
   const goPrev = () => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s));
-
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");
@@ -250,11 +274,6 @@ const [formData, setFormData] = useState({
       .then(setVehicleTypes)
       .catch((err) => console.error("Failed to fetch vehicle types", err));
   }, []);
-
-  const selectedTrip = tripTypes.find(
-    (t) => String(t.id) === formData.tripType
-  );
-  const tripSlug = selectedTrip?.slug ?? "";
 
   const showDropCity = [
     "one-way",
@@ -368,42 +387,59 @@ const [formData, setFormData] = useState({
     setLoading(true);
 
     try {
-      // normalize numbers first
-const persons = Math.max(1, Number(formData.numPersons || 1));
-const vehicles = Math.max(1, Number(formData.numVehicles || 1));
-const fare = Number.parseFloat(formData.estimatedCost || "0") || 0;
+      // split "YYYY-MM-DDTHH:mm" coming from <input type="datetime-local">
+      const [pickupDateStr, pickupTimeRaw] = (formData.pickupDateTime || "").split("T");
+      const pickupTimeStr = toHHmm(pickupTimeRaw || "");
 
-const payload = {
-  name: formData.name,
-  phone: formData.phone,
-  pickupLocation: formData.pickupLocation,
-  dropoffLocation: formData.dropoffLocation,
-  pickupDateTime: new Date(formData.pickupDateTime).toISOString(),
-  bookingType: formData.bookingType,
-  vehicleTypeId: Number(formData.vehicleType),
-  estimatedCost: fare,
-  notes: formData.notes,
-  fromCityId: Number(formData.fromCity),
-  toCityId: Number(formData.dropCity),
-  tripTypeId: Number(formData.tripType),
-  stopCities: formData.stopCities.filter(Boolean),
+      // quick client-side guard for the new DTO
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDateStr)) {
+        toast({ title: "Invalid pickup date", description: "Use YYYY-MM-DD", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+      if (!/^[0-2]\d:[0-5]\d$/.test(pickupTimeStr)) {
+        toast({ title: "Invalid pickup time", description: "Use HH:mm (24h)", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
 
-  // --- persons/vehicles (force numeric) ---
-  numPersons: persons,
-  numVehicles: vehicles,
+      const persons = Math.max(1, Number(formData.numPersons || 1));
+      const vehicles = Math.max(1, Number(formData.numVehicles || 1));
+      const fare = Number.parseFloat(formData.estimatedCost || "0") || 0;
 
-  // harmless aliases (if backend used a different key earlier)
-  noOfPersons: persons,
-  personsCount: persons,
+      const payload: any = {
+        name: formData.name,
+        phone: formData.phone,
+        pickupLocation: formData.pickupLocation,
+        dropoffLocation: formData.dropoffLocation,
 
-  fare,
-  ...(tripSlug === 'round-trip' && formData.returnDate
-    ? { returnDate: formData.returnDate }
-    : {}),
-  
-};
+        // backend now expects split fields
+        pickupDate: pickupDateStr,   // "YYYY-MM-DD"
+        pickupTime: pickupTimeStr,   // "HH:mm"
 
+        bookingType: formData.bookingType,
+        vehicleTypeId: Number(formData.vehicleType),
+        estimatedCost: fare,
+        notes: formData.notes,
+        fromCityId: Number(formData.fromCity),
+        toCityId: Number(formData.dropCity),
+        tripTypeId: Number(formData.tripType),
+        stopCities: formData.stopCities.filter(Boolean),
 
+        numPersons: persons,
+        numVehicles: vehicles,
+        // optional aliases if older code still reads them
+        noOfPersons: persons,
+        personsCount: persons,
+
+        fare,
+      };
+
+      // include return parts for round-trip
+      if (tripSlug === "round-trip" && formData.returnDate) {
+        payload.returnDate = formData.returnDate; // "YYYY-MM-DD"
+        if (formData.returnTime) payload.returnTime = toHHmm(formData.returnTime); // "HH:mm"
+      }
 
       if (booking?.id) {
         await updateBooking(booking.id, payload);
@@ -442,159 +478,128 @@ const payload = {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Step indicator */}
-        <div className="flex items-center justify-center gap-3">
-          {[1,2,3].map((n) => (
-            <div key={n} className="flex items-center gap-2">
-              <div
-                className={[
-                  "h-8 w-8 rounded-full flex items-center justify-center text-sm font-semibold",
-                  step === n ? "bg-primary text-white" : "bg-muted text-foreground",
-                ].join(" ")}
-              >
-                {n}
-              </div>
-              <span className={`text-sm ${step === n ? "font-semibold" : "text-muted-foreground"}`}>
-                {n === 1 ? "Trip & Route" : n === 2 ? "Vehicle & Fare" : "Customer & Notes"}
-              </span>
-              {n !== 3 && <div className="w-8 h-[2px] bg-muted mx-2" />}
-            </div>
-          ))}
-        </div>
-
-        {/* -------- STEP 1: Trip & Route -------- */}
-        {step === 1 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Trip Type</Label>
-              <Select
-                value={formData.tripType}
-                onValueChange={(value) => setFormData({ ...formData, tripType: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select trip type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tripTypes.map((type) => (
-                    <SelectItem key={type.id} value={String(type.id)}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{fromCityLabel}</Label>
-              <CityCombobox
-                cities={cities}
-                value={formData.fromCity}
-                onChange={(id) => setFormData({ ...formData, fromCity: id })}
-                placeholder={fromCityLabel}
-              />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label>Stopover Cities (optional)</Label>
-              {formData.stopCities.map((cityId, index) => (
-                <div key={index} className="flex gap-2 items-center">
-                  <CityCombobox
-                    cities={cities}
-                    value={cityId}
-                    onChange={(id) => {
-                      const updated = [...formData.stopCities];
-                      updated[index] = id;
-                      setFormData({ ...formData, stopCities: updated });
-                    }}
-                    placeholder={`Select stopover city #${index + 1}`}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      const updated = [...formData.stopCities];
-                      updated.splice(index, 1);
-                      setFormData({ ...formData, stopCities: updated });
-                    }}
-                  >
-                    ✕
-                  </Button>
+          {/* Step indicator */}
+          <div className="flex items-center justify-center gap-3">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="flex items-center gap-2">
+                <div
+                  className={[
+                    "h-8 w-8 rounded-full flex items-center justify-center text-sm font-semibold",
+                    step === n ? "bg-primary text-white" : "bg-muted text-foreground",
+                  ].join(" ")}
+                >
+                  {n}
                 </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  setFormData({ ...formData, stopCities: [...formData.stopCities, ""] })
-                }
-              >
-                + Add Stopover City
-              </Button>
-            </div>
+                <span className={`text-sm ${step === n ? "font-semibold" : "text-muted-foreground"}`}>
+                  {n === 1 ? "Trip & Route" : n === 2 ? "Vehicle & Fare" : "Customer & Notes"}
+                </span>
+                {n !== 3 && <div className="w-8 h-[2px] bg-muted mx-2" />}
+              </div>
+            ))}
+          </div>
 
-            {showDropCity && (
+          {/* -------- STEP 1: Trip & Route -------- */}
+          {step === 1 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{dropCityLabel}</Label>
+                <Label>Trip Type</Label>
+                <Select
+                  value={formData.tripType}
+                  onValueChange={(value) => setFormData({ ...formData, tripType: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select trip type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tripTypes.map((type) => (
+                      <SelectItem key={type.id} value={String(type.id)}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{fromCityLabel}</Label>
                 <CityCombobox
                   cities={cities}
-                  value={formData.dropCity}
-                  onChange={(id) => setFormData({ ...formData, dropCity: id })}
-                  placeholder={dropCityLabel}
+                  value={formData.fromCity}
+                  onChange={(id) => setFormData({ ...formData, fromCity: id })}
+                  placeholder={fromCityLabel}
                 />
               </div>
-            )}
 
-            <div className="space-y-4 md:col-span-2">
-              <Label>Pickup Location</Label>
-              <div className="relative">
-                <Input
-                  value={formData.pickupLocation}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setFormData({ ...formData, pickupLocation: val });
-                  }}
-                  required
-                  autoComplete="off"
-                />
-                {pickupSuggestions.length > 0 && (
-                  <ul className="absolute z-30 bg-white border border-gray-300 rounded-md mt-1 w-full max-h-60 overflow-auto text-sm">
-                    {pickupSuggestions.map((s) => (
-                      <li
-                        key={s.place_id}
-                        onClick={() => {
-                          setFormData({ ...formData, pickupLocation: s.description });
-                          setPickupSuggestions([]);
-                        }}
-                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                      >
-                        {s.description}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+              <div className="space-y-2 md:col-span-2">
+                <Label>Stopover Cities (optional)</Label>
+                {formData.stopCities.map((cityId, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <CityCombobox
+                      cities={cities}
+                      value={cityId}
+                      onChange={(id) => {
+                        const updated = [...formData.stopCities];
+                        updated[index] = id;
+                        setFormData({ ...formData, stopCities: updated });
+                      }}
+                      placeholder={`Select stopover city #${index + 1}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        const updated = [...formData.stopCities];
+                        updated.splice(index, 1);
+                        setFormData({ ...formData, stopCities: updated });
+                      }}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setFormData({ ...formData, stopCities: [...formData.stopCities, ""] })
+                  }
+                >
+                  + Add Stopover City
+                </Button>
               </div>
-            </div>
 
-            {showDropoffLocation && (
+              {showDropCity && (
+                <div className="space-y-2">
+                  <Label>{dropCityLabel}</Label>
+                  <CityCombobox
+                    cities={cities}
+                    value={formData.dropCity}
+                    onChange={(id) => setFormData({ ...formData, dropCity: id })}
+                    placeholder={dropCityLabel}
+                  />
+                </div>
+              )}
+
               <div className="space-y-4 md:col-span-2">
-                <Label>Dropoff Location</Label>
+                <Label>Pickup Location</Label>
                 <div className="relative">
                   <Input
-                    value={formData.dropoffLocation}
-                    onChange={(e) =>
-                      setFormData({ ...formData, dropoffLocation: e.target.value })
-                    }
+                    value={formData.pickupLocation}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, pickupLocation: val });
+                    }}
                     required
                     autoComplete="off"
                   />
-                  {dropSuggestions.length > 0 && (
+                  {pickupSuggestions.length > 0 && (
                     <ul className="absolute z-30 bg-white border border-gray-300 rounded-md mt-1 w-full max-h-60 overflow-auto text-sm">
-                      {dropSuggestions.map((s) => (
+                      {pickupSuggestions.map((s) => (
                         <li
                           key={s.place_id}
                           onClick={() => {
-                            setFormData({ ...formData, dropoffLocation: s.description });
-                            setDropSuggestions([]);
+                            setFormData({ ...formData, pickupLocation: s.description });
+                            setPickupSuggestions([]);
                           }}
                           className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                         >
@@ -605,268 +610,305 @@ const payload = {
                   )}
                 </div>
               </div>
-            )}
 
-            <div className="space-y-2">
-              <Label>Pickup Time</Label>
-              <Input
-                type="datetime-local"
-                value={formData.pickupDateTime}
-                onChange={(e) =>
-                  setFormData({ ...formData, pickupDateTime: e.target.value })
-                }
-                required
-              />
-            </div>
+              {showDropoffLocation && (
+                <div className="space-y-4 md:col-span-2">
+                  <Label>Dropoff Location</Label>
+                  <div className="relative">
+                    <Input
+                      value={formData.dropoffLocation}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dropoffLocation: e.target.value })
+                      }
+                      required
+                      autoComplete="off"
+                    />
+                    {dropSuggestions.length > 0 && (
+                      <ul className="absolute z-30 bg-white border border-gray-300 rounded-md mt-1 w-full max-h-60 overflow-auto text-sm">
+                        {dropSuggestions.map((s) => (
+                          <li
+                            key={s.place_id}
+                            onClick={() => {
+                              setFormData({ ...formData, dropoffLocation: s.description });
+                              setDropSuggestions([]);
+                            }}
+                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                          >
+                            {s.description}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
 
-            {tripSlug === "round-trip" && (
               <div className="space-y-2">
-                <Label>Return Date</Label>
+                <Label>Pickup Time</Label>
                 <Input
-                  type="date"
-                  value={formData.returnDate}
-                  min={
-                    formData.pickupDateTime
-                      ? formData.pickupDateTime.slice(0, 10)
-                      : undefined
-                  }
+                  type="datetime-local"
+                  value={formData.pickupDateTime}
                   onChange={(e) =>
-                    setFormData({ ...formData, returnDate: e.target.value })
+                    setFormData({ ...formData, pickupDateTime: e.target.value })
                   }
                   required
                 />
               </div>
-            )}
-          </div>
-        )}
 
-        {/* -------- STEP 2: Vehicle & Fare -------- */}
-        {step === 2 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {tripSlug !== "round-trip" && (
+              {tripSlug === "round-trip" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Return Date</Label>
+                    <Input
+                      type="date"
+                      value={formData.returnDate}
+                      min={formData.pickupDateTime ? formData.pickupDateTime.slice(0, 10) : undefined}
+                      onChange={(e) => setFormData({ ...formData, returnDate: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Return Time</Label>
+                    <Input
+                      type="time"
+                      value={formData.returnTime}
+                      onChange={(e) => setFormData({ ...formData, returnTime: toHHmm(e.target.value) })}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* -------- STEP 2: Vehicle & Fare -------- */}
+          {step === 2 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {tripSlug !== "round-trip" && (
+                <div className="space-y-2">
+                  <Label>No. of Persons</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={formData.numPersons}
+                    onChange={(e) => {
+                      const persons = Math.max(1, Number(e.target.value) || 1); // force number
+                      const selectedVehicle = vehicleTypes.find(
+                        (v) => String(v.id) === formData.vehicleType
+                      );
+                      const seating = selectedVehicle?.seatingCapacity || 4;
+                      const vehicles = Math.ceil(persons / seating);
+                      setFormData((prev) => ({
+                        ...prev,
+                        numPersons: persons,
+                        numVehicles: vehicles,
+                      }));
+                    }}
+                    required
+                  />
+                </div>
+              )}
+
+              {tripSlug === "round-trip" && (
+                <div className="space-y-2">
+                  <Label>No. of Persons</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={formData.numPersons}
+                    onChange={(e) => {
+                      const persons = parseInt(e.target.value) || 1;
+                      const selectedVehicle = vehicleTypes.find(
+                        (v) => String(v.id) === formData.vehicleType
+                      );
+                      const seating = selectedVehicle?.seatingCapacity || 4;
+                      const vehicles = Math.ceil(persons / seating);
+                      setFormData((prev) => ({
+                        ...prev,
+                        numPersons: persons,
+                        numVehicles: vehicles,
+                      }));
+                    }}
+                    required
+                  />
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label>No. of Persons</Label>
+                <Label>Suggested No. of Vehicles</Label>
                 <Input
                   type="number"
-                  min={1}
-                  value={formData.numPersons}
-                  onChange={(e) => {
-                  const persons = Math.max(1, Number(e.target.value) || 1); // force number
-                  const selectedVehicle = vehicleTypes.find(
-                    (v) => String(v.id) === formData.vehicleType
-                  );
-                  const seating = selectedVehicle?.seatingCapacity || 4;
-                  const vehicles = Math.ceil(persons / seating);
-                  setFormData((prev) => ({
-                    ...prev,
-                    numPersons: persons,
-                    numVehicles: vehicles,
-                  }));
-                }}
-                  required
+                  readOnly
+                  value={formData.numVehicles}
+                  className="bg-gray-100 cursor-not-allowed"
                 />
               </div>
-            )}
 
-            {tripSlug === "round-trip" && (
               <div className="space-y-2">
-                <Label>No. of Persons</Label>
+                <Label>Vehicle Type</Label>
+                <Select
+                  value={formData.vehicleType}
+                  onValueChange={(value) => {
+                    const selectedVehicle = vehicleTypes.find(
+                      (v) => String(v.id) === value
+                    );
+                    if (!selectedVehicle) return;
+
+                    const seating = selectedVehicle.seatingCapacity || 4;
+                    const persons = formData.numPersons || 1;
+                    const vehicles = Math.ceil(persons / seating);
+
+                    let cost = "";
+                    if (distanceInfo?.optimizedDistanceKm) {
+                      const rate = selectedVehicle.estimatedRatePerKm;
+                      const base = selectedVehicle.baseFare;
+                      const dist = distanceInfo?.optimizedDistanceKm ?? 0;
+                      const total = vehicles * (rate * dist + base);
+                      cost = total.toFixed(2);
+                    }
+
+                    setFormData((prev) => ({
+                      ...prev,
+                      vehicleType: value,
+                      numVehicles: vehicles,
+                      estimatedCost: cost,
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select vehicle type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vehicleTypes.map((v) => (
+                      <SelectItem key={v.id} value={String(v.id)}>
+                        {v.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Estimated Cost</Label>
                 <Input
                   type="number"
-                  min={1}
-                  value={formData.numPersons}
-                  onChange={(e) => {
-                    const persons = parseInt(e.target.value) || 1;
+                  step="0.01"
+                  value={formData.estimatedCost}
+                  onChange={(e) =>
+                    setFormData({ ...formData, estimatedCost: e.target.value })
+                  }
+                />
+              </div>
+
+              {distanceInfo && (
+                <div className="md:col-span-2 text-sm border p-3 rounded bg-muted">
+                  <p>
+                    <strong>Original Distance:</strong>{" "}
+                    {distanceInfo?.originalDistanceKm?.toFixed?.(2) ?? "N/A"} km
+                  </p>
+
+                  {formData.vehicleType && (() => {
                     const selectedVehicle = vehicleTypes.find(
                       (v) => String(v.id) === formData.vehicleType
                     );
-                    const seating = selectedVehicle?.seatingCapacity || 4;
+                    if (!selectedVehicle || !distanceInfo) return null;
+                    const rate = selectedVehicle.estimatedRatePerKm;
+                    const base = selectedVehicle.baseFare;
+                    const dist = distanceInfo.optimizedDistanceKm;
+                    const persons = formData.numPersons || 1;
+                    const seating = selectedVehicle.seatingCapacity || 4;
                     const vehicles = Math.ceil(persons / seating);
-                    setFormData((prev) => ({
-                      ...prev,
-                      numPersons: persons,
-                      numVehicles: vehicles,
-                    }));
-                  }}
+                    const costPerVehicle = rate * dist + base;
+                    const totalCost = vehicles * costPerVehicle;
+                    return (
+                      <div className="md:col-span-2 text-sm border p-3 rounded bg-muted mt-2">
+                        <p>Estimated Fare = {vehicles} × (₹{rate} × {dist.toFixed(2)} km + ₹{base})</p>
+                        <p className="font-bold">= ₹{totalCost.toFixed(2)}</p>
+                      </div>
+                    );
+                  })()}
+
+                  <p className="mt-2">
+                    <strong>Optimized Distance:</strong>{" "}
+                    {distanceInfo?.optimizedDistanceKm?.toFixed?.(2) ?? "N/A"} km
+                  </p>
+                  {optimizedRoute.length > 0 && (
+                    <p className="pt-1">
+                      <strong>Optimized Route:</strong>{" "}
+                      {optimizedRoute
+                        .map(
+                          (id) =>
+                            cities.find((c) => String(c.id) === String(id))?.name ||
+                            `City#${id}`
+                        )
+                        .join(" → ")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* -------- STEP 3: Customer & Notes -------- */}
+          {step === 3 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Phone Number</Label>
+                <Input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onBlur={handlePhoneBlur}
+                  disabled={isEditMode}
+                  className={isEditMode ? "bg-gray-100 cursor-not-allowed" : ""}
                   required
                 />
               </div>
-            )}
 
-            <div className="space-y-2">
-              <Label>Suggested No. of Vehicles</Label>
-              <Input
-                type="number"
-                readOnly
-                value={formData.numVehicles}
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Vehicle Type</Label>
-              <Select
-                value={formData.vehicleType}
-                onValueChange={(value) => {
-                  const selectedVehicle = vehicleTypes.find(
-                    (v) => String(v.id) === value
-                  );
-                  if (!selectedVehicle) return;
-
-                  const seating = selectedVehicle.seatingCapacity || 4;
-                  const persons = formData.numPersons || 1;
-                  const vehicles = Math.ceil(persons / seating);
-
-                  let cost = "";
-                  if (distanceInfo?.optimizedDistanceKm) {
-                    const rate = selectedVehicle.estimatedRatePerKm;
-                    const base = selectedVehicle.baseFare;
-                    const dist = distanceInfo?.optimizedDistanceKm ?? 0;
-                    const total = vehicles * (rate * dist + base);
-                    cost = total.toFixed(2);
-                  }
-
-                  setFormData((prev) => ({
-                    ...prev,
-                    vehicleType: value,
-                    numVehicles: vehicles,
-                    estimatedCost: cost,
-                  }));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select vehicle type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicleTypes.map((v) => (
-                    <SelectItem key={v.id} value={String(v.id)}>
-                      {v.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Estimated Cost</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={formData.estimatedCost}
-                onChange={(e) =>
-                  setFormData({ ...formData, estimatedCost: e.target.value })
-                }
-              />
-            </div>
-
-            {distanceInfo && (
-              <div className="md:col-span-2 text-sm border p-3 rounded bg-muted">
-                <p>
-                  <strong>Original Distance:</strong>{" "}
-                  {distanceInfo?.originalDistanceKm?.toFixed?.(2) ?? "N/A"} km
-                </p>
-
-                {formData.vehicleType && (() => {
-                  const selectedVehicle = vehicleTypes.find(
-                    (v) => String(v.id) === formData.vehicleType
-                  );
-                  if (!selectedVehicle || !distanceInfo) return null;
-                  const rate = selectedVehicle.estimatedRatePerKm;
-                  const base = selectedVehicle.baseFare;
-                  const dist = distanceInfo.optimizedDistanceKm;
-                  const persons = formData.numPersons || 1;
-                  const seating = selectedVehicle.seatingCapacity || 4;
-                  const vehicles = Math.ceil(persons / seating);
-                  const costPerVehicle = rate * dist + base;
-                  const totalCost = vehicles * costPerVehicle;
-                  return (
-                    <div className="md:col-span-2 text-sm border p-3 rounded bg-muted mt-2">
-                      <p>Estimated Fare = {vehicles} × (₹{rate} × {dist.toFixed(2)} km + ₹{base})</p>
-                      <p className="font-bold">= ₹{totalCost.toFixed(2)}</p>
-                    </div>
-                  );
-                })()}
-
-                <p className="mt-2">
-                  <strong>Optimized Distance:</strong>{" "}
-                  {distanceInfo?.optimizedDistanceKm?.toFixed?.(2) ?? "N/A"} km
-                </p>
-                {optimizedRoute.length > 0 && (
-                  <p className="pt-1">
-                    <strong>Optimized Route:</strong>{" "}
-                    {optimizedRoute
-                      .map(
-                        (id) =>
-                          cities.find((c) => String(c.id) === String(id))?.name ||
-                          `City#${id}`
-                      )
-                      .join(" → ")}
-                  </p>
-                )}
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={isEditMode}
+                  className={isEditMode ? "bg-gray-100 cursor-not-allowed" : ""}
+                  required
+                />
               </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Notes</Label>
+                <Textarea
+                  rows={3}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Footer buttons */}
+          <DialogFooter className="flex gap-2 justify-end">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            {step > 1 && (
+              <Button type="button" variant="secondary" onClick={goPrev}>
+                Back
+              </Button>
             )}
-          </div>
-        )}
-
-        {/* -------- STEP 3: Customer & Notes -------- */}
-        {step === 3 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Phone Number</Label>
-              <Input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                onBlur={handlePhoneBlur}
-                disabled={isEditMode}
-                className={isEditMode ? "bg-gray-100 cursor-not-allowed" : ""}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                disabled={isEditMode}
-                className={isEditMode ? "bg-gray-100 cursor-not-allowed" : ""}
-                required
-              />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label>Notes</Label>
-              <Textarea
-                rows={3}
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Footer buttons */}
-        <DialogFooter className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          {step > 1 && (
-            <Button type="button" variant="secondary" onClick={goPrev}>
-              Back
-            </Button>
-          )}
-          {step < 3 ? (
-            <Button type="button" onClick={goNext}>
-              Save & Continue
-            </Button>
-          ) : (
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : booking ? "Update Booking" : "Create Booking"}
-            </Button>
-          )}
-        </DialogFooter>
+            {step < 3 ? (
+              <Button type="button" onClick={goNext}>
+                Save & Continue
+              </Button>
+            ) : (
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : booking ? "Update Booking" : "Create Booking"}
+              </Button>
+            )}
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

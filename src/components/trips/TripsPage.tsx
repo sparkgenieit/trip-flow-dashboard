@@ -69,32 +69,66 @@ const TripsPage = () => {
 
 
   useEffect(() => {
-    fetchTrips();
-  }, []);
+        const token = localStorage.getItem('authToken');
+        let role: string | null = null;
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            role = payload?.role || null;
+          } catch (e) {
+            console.warn('Invalid token payload', e);
+          }
+        }
+        setUserRole(role);
+        fetchTrips(role);
+      }, []);
 
-  useEffect(() => {
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    setUserRole(payload?.role || null);
-  }
-}, []);
+    const fetchTrips = async (role?: string | null) => {
+        setLoading(true);
+        try {
+          let data: Trip[] = [];
 
-    const fetchTrips = async () => {
-    try {
-      const data = await getTrips();
-      setTrips(data);
-    } catch (error) {
-      console.error('Error fetching trips:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch trips",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+          if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
+            // Admins should see trips from all vendors
+            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/trips?scope=all`, {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`,
+              },
+            });
+
+            if (res.ok) {
+              data = await res.json();
+            } else {
+              // Fallback to the existing service if the above query isn't supported
+              data = await getTrips();
+            }
+          } else {
+            // Vendor / Driver / Rider -> keep current behavior
+            data = await getTrips();
+          }
+
+          // Optional: newest first
+          data = Array.isArray(data)
+            ? [...data].sort(
+                (a, b) =>
+                  new Date(b.startTime || 0).getTime() - new Date(a.startTime || 0).getTime()
+              )
+            : [];
+
+          setTrips(data);
+        } catch (error) {
+          console.error('Error fetching trips:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to fetch trips',
+            variant: 'destructive',
+          });
+        } finally {
+          setLoading(false);
+        }
+      };
+
 
   const Marker = ({ lat, lng }: { lat: number; lng: number }) => (
   <div className="text-red-600 text-xl">📍</div>
@@ -153,25 +187,28 @@ const handleTrackTrip = (tripId: number) => {
 
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'scheduled': return 'secondary';
-      case 'started': return 'default';
-      case 'completed': return 'outline';
-      case 'cancelled': return 'destructive';
-      case 'breakdown': return 'destructive';
-      default: return 'secondary';
+    switch ((status || '').toUpperCase()) {
+      case 'SCHEDULED': return 'secondary';
+      case 'STARTED':
+      case 'ONGOING':   return 'default';
+      case 'COMPLETED': return 'outline';
+      case 'CANCELLED':
+      case 'BREAKDOWN': return 'destructive';
+      default:          return 'secondary';
     }
   };
 
 const handleTripAssistance = (trip: Trip) => {
   if (userRole === 'DRIVER') {
+    // Driver fills the form in a modal (existing flow)
     setTripForAssistance(trip);
-  } else if (userRole === 'VENDOR') {
+  } else if (userRole === 'VENDOR' || userRole === 'ADMIN') {
+    // Vendors and Admins can open the assistance dashboard page for this trip
     window.open(`/dashboard/trip-assistance?tripId=${trip.id}`, '_blank');
   } else {
     toast({
       title: 'Access Denied',
-      description: 'Only drivers or vendors can access trip assistance.',
+      description: 'Only drivers, vendors, or admins can access trip assistance.',
       variant: 'destructive',
     });
   }
@@ -229,12 +266,23 @@ const submitFeedback = async (data: FeedbackFormData) => {
     });
   };
 
-  const filteredTrips = trips.filter(trip =>
-    trip.start_location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trip.end_location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trip.booking?.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-
-  );
+  const q = searchTerm.trim().toLowerCase();
+  const filteredTrips = !q
+    ? trips // show everything when the search is empty
+    : trips.filter((trip) => {
+        const haystack = [
+          trip.start_location,
+          trip.end_location,
+          trip.rider?.name,                 // <-- your API shape
+          trip.driver?.fullName,
+          trip.vehicle?.registrationNumber,
+          trip.vendor?.name,
+          trip.vendor?.companyReg,
+          // fallback if some APIs also embed booking.user
+          trip.booking?.user?.name,
+        ];
+        return haystack.some((v) => (v || '').toLowerCase().includes(q));
+      });
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading trips...</div>;
@@ -271,7 +319,7 @@ const submitFeedback = async (data: FeedbackFormData) => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">
-                  {trip.booking?.user?.name || 'Unknown Customer'}
+                  {trip.rider?.name || trip.booking?.user?.name || 'Unknown Customer'}
                 </CardTitle>
                 <div className="flex space-x-2">
                   <Badge variant={getStatusColor(trip.status)}>
@@ -299,7 +347,9 @@ const submitFeedback = async (data: FeedbackFormData) => {
                   <MapPin className="h-4 w-4 text-red-500" />
                   <div>
                     <span className="font-medium">End:</span>
-                    <p className="truncate">{trip.start_location || trip.booking?.dropAddress?.address || 'Unknown drop'}</p>
+                    <p className="truncate">
+                      {trip.end_location || trip.booking?.dropAddress?.address || 'Unknown drop'}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -369,16 +419,16 @@ const submitFeedback = async (data: FeedbackFormData) => {
                   <Phone className="mr-1 h-3 w-3" />
                   Contact Driver
                 </Button>
-                {userRole === 'DRIVER' || (userRole === 'VENDOR' && trip.assistances?.length > 0) ? (
-                <Button
-                  size="sm"
-                  variant={trip.assistances?.[0]?.messageStatus === 'UNREAD' ? 'destructive' : 'outline'}
-                  onClick={() => handleTripAssistance(trip)}
-                >
-                  <AlertTriangle className="mr-1 h-3 w-3" />
-                  Trip Assistance
-                </Button>
-              ) : null}
+                {(userRole === 'DRIVER' || userRole === 'VENDOR' || userRole === 'ADMIN') && (
+                    <Button
+                      size="sm"
+                      variant={trip.assistances?.some(a => a.messageStatus === 'UNREAD') ? 'destructive' : 'outline'}
+                      onClick={() => handleTripAssistance(trip)}
+                    >
+                      <AlertTriangle className="mr-1 h-3 w-3" />
+                      Trip Assistance
+                    </Button>
+                  )}
                 <Button size="sm" variant="outline" onClick={() => handleGenerateInvoice(trip.id)}>
                   Generate Invoice
                 </Button>

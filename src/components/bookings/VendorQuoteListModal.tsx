@@ -25,6 +25,7 @@ interface Props {
 
 const VendorQuoteListModal: React.FC<Props> = ({ bookingId, open, onClose, onApproved, isAdmin }) => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const hasApproved = quotes.some(q => q.approved);   
   const { toast } = useToast();
 
   const loadQuotes = async () => {
@@ -37,15 +38,30 @@ const VendorQuoteListModal: React.FC<Props> = ({ bookingId, open, onClose, onApp
   };
 
   const handleApprove = async (quoteId: number) => {
-    try {
-      await approveQuote(quoteId);
-      toast({ title: 'Quote approved' });
-      onApproved();
-      onClose();
-    } catch {
-      toast({ title: 'Approval failed', variant: 'destructive' });
-    }
-  };
+  // block further approvals if one is already approved
+  if (quotes.some(q => q.approved)) {
+    toast({
+      title: 'A quote is already approved',
+      description: 'Only one quote can be approved per booking.',
+    });
+    return;
+  }
+
+  try {
+    await approveQuote(quoteId);
+    toast({ title: 'Quote approved' });
+
+    // reflect in local UI immediately
+    setQuotes(prev =>
+      prev.map(q => (q.id === quoteId ? { ...q, approved: true } : q))
+    );
+
+    onApproved();
+    onClose(); // remove this line if you prefer to keep the dialog open
+  } catch {
+    toast({ title: 'Approval failed', variant: 'destructive' });
+  }
+};
 
   useEffect(() => {
     if (open) loadQuotes();
@@ -57,45 +73,51 @@ const VendorQuoteListModal: React.FC<Props> = ({ bookingId, open, onClose, onApp
         <DialogHeader>
           <DialogTitle>Vendor Quotes</DialogTitle>
         </DialogHeader>
-       <div className="space-y-2">
-  {quotes.length === 0 ? (
-    <p>No quotes submitted yet.</p>
-  ) : (
-    <>
-  {quotes.map((q) => (
-  <div
-    key={q.id}
-    className={`flex justify-between items-center border p-3 rounded gap-4 ${
-      q.approved ? 'bg-green-100 border-green-500' : ''
-    }`}
-  >
-    {/* LEFT: Vendor Details */}
-    <div className="flex flex-col">
-      <div className="font-medium text-gray-900">{q.vendor.companyReg}</div>
-      <div className="text-sm text-gray-500">By {q.vendor.name}</div>
-    </div>
+        <div className="space-y-2">
+          {quotes.length === 0 ? (
+            <p>No quotes submitted yet.</p>
+          ) : (
+            <>
+              {quotes.map((q) => (
+                <div
+                  key={q.id}
+                  className={`flex justify-between items-center border p-3 rounded gap-4 ${
+                    q.approved ? 'bg-green-100 border-green-500' : ''
+                  }`}
+                >
+                  {/* LEFT: Vendor Details */}
+                  <div className="flex flex-col">
+                    <div className="font-medium text-gray-900">{q.vendor.companyReg}</div>
+                    <div className="text-sm text-gray-500">By {q.vendor.name}</div>
+                  </div>
 
-    {/* CENTER: Quote Amount */}
-    <div className="text-lg font-semibold text-gray-800 whitespace-nowrap">
-      ₹ {q.amount}
-    </div>
+                  {/* CENTER: Quote Amount */}
+                  <div className="text-lg font-semibold text-gray-800 whitespace-nowrap">
+                    ₹ {q.amount}
+                  </div>
 
-    {/* RIGHT: Approve button or Approved badge */}
-    {q.approved ? (
-      <span className="text-green-700 font-medium text-sm px-3 py-1 rounded bg-green-200">
-        ✔ Approved
-      </span>
-    ) : (
-      isAdmin && (
-        <Button onClick={() => handleApprove(q.id)}>Approve</Button>
-      )
-    )}
-  </div>
-))}
+                  {/* RIGHT: Approve button or Approved badge */}
+                  {q.approved ? (
+                    <span className="text-green-700 font-medium text-sm px-3 py-1 rounded bg-green-200">
+                      ✔ Approved
+                    </span>
+                  ) : (
+                    isAdmin && (
+                      <Button
+                        onClick={() => handleApprove(q.id)}
+                        disabled={hasApproved}                // ⟵ disable if any is approved
+                        className={hasApproved ? 'opacity-50 cursor-not-allowed' : ''}
+                      >
+                        Approve
+                      </Button>
+                    )
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
 
-    </>
-  )}
-</div>
 
       </DialogContent>
     </Dialog>
