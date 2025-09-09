@@ -1,10 +1,13 @@
 'use client';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { DriverFormData } from './DriverTabs';
+import { fetchAllVendors } from '@/services/vendor';
+import { getVehicleTypes } from '@/services/vehicles';
+
 
 export default function DriverBasicInfoForm(props: {
   value: DriverFormData;
@@ -13,34 +16,100 @@ export default function DriverBasicInfoForm(props: {
 }) {
   const { value: v, onChange } = props;
 
+  const [vendors, setVendors] = useState<Array<{ id: number; name?: string; companyReg?: string }>>([]);
+
+useEffect(() => {
+  (async () => {
+    try {
+      const vs = await fetchAllVendors();
+      // supports both shapes: array or { data: [...] }
+      const list = Array.isArray(vs) ? vs : Array.isArray(vs?.data) ? vs.data : [];
+      setVendors(list);
+    } catch (e) {
+      console.error('Failed to fetch vendors', e);
+      setVendors([]);
+    }
+  })();
+}, []);
+
+  const [vehicleTypes, setVehicleTypes] = useState<Array<{ id: number; name: string }>>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const types = await getVehicleTypes();
+        const list = Array.isArray(types) ? types : Array.isArray((types as any)?.data) ? (types as any).data : [];
+        setVehicleTypes(list);
+      } catch (e) {
+        console.error('Failed to fetch vehicle types', e);
+        setVehicleTypes([]);
+      }
+    })();
+  }, []);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* Row 1 */}
       <div className="space-y-2">
-        <Label>Choose Vendor {props.vendorId ? '(preselected)' : '*'}</Label>
-        <Input
-          placeholder={props.vendorId ? String(props.vendorId) : 'Vendor ID'}
-          value={props.vendorId ? String(props.vendorId) : (v.vendorId ?? '').toString()}
-          disabled={!!props.vendorId}
-          onChange={(e) => onChange({ vendorId: Number(e.target.value || 0) || null })}
-        />
-      </div>
+      <Label>Choose Vendor {props.vendorId ? '(preselected)' : ''}</Label>
+      <Select
+        value={
+          props.vendorId
+            ? String(props.vendorId)
+            : v.vendorId != null
+              ? String(v.vendorId)
+              : 'unassigned'
+        }
+        onValueChange={(val) => onChange({ vendorId: val === 'unassigned' ? null : Number(val) })}
+        disabled={!!props.vendorId}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select vendor" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="unassigned">No vendor assigned</SelectItem>
+          {vendors.map((vendor) => (
+            <SelectItem key={vendor.id} value={String(vendor.id)}>
+              {vendor.companyReg || vendor.name || `Vendor #${vendor.id}`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
 
       <div className="space-y-2">
-        <Label>Choose Vehicle Type *</Label>
-        <Select
-          value={v.vehicleType ?? ''}
-          onValueChange={(x) => onChange({ vehicleType: x })}
-        >
-          <SelectTrigger><SelectValue placeholder="Select Vehicle Type" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Sedan">Sedan</SelectItem>
-            <SelectItem value="SUV">SUV</SelectItem>
-            <SelectItem value="Hatchback">Hatchback</SelectItem>
-            <SelectItem value="Tempo">Tempo</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Label>Choose Vehicle Type *</Label>
+      <Select
+        value={
+          // prefer numeric ID if present (recommended)
+          (v as any).vehicleTypeId != null
+            ? String((v as any).vehicleTypeId)
+            // back-compat: if old forms store a string field
+            : v.vehicleType
+              ? String(v.vehicleType)
+              : 'unassigned'
+        }
+        onValueChange={(val) => {
+          if (val === 'unassigned') {
+            // clear both shapes safely
+            onChange({ ...( { vehicleTypeId: null } as any ), vehicleType: '' as any });
+          } else {
+            // write ID-first; keep a fallback name if your type has only vehicleType
+            onChange({ ...( { vehicleTypeId: Number(val) } as any ), vehicleType: String(val) as any });
+          }
+        }}
+      >
+        <SelectTrigger><SelectValue placeholder="Select Vehicle Type" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="unassigned">No type selected</SelectItem>
+          {vehicleTypes.map((vt) => (
+            <SelectItem key={vt.id} value={String(vt.id)}>
+              {vt.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
 
       <div className="space-y-2">
         <Label>Driver Name *</Label>

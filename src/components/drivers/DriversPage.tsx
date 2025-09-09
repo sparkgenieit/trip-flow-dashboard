@@ -1,26 +1,31 @@
-// src/dashboard/drivers/DriversPage.tsx
-import { getDrivers, deleteDriver } from '@/services/drivers';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { getDrivers, deleteDriver as deleteDriverApi } from '@/services/drivers';
+import axios from 'axios';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import DriverForm from './DriverForm';
-import axios from 'axios';
-import type { DriverFormInput } from './DriverForm';
+
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
-import { Link } from 'react-router-dom';
+
+// If you have a local form component, keep these imports.
+// Adjust the path if your project structure differs.
+// Remove this import if you don't use the inline form open/close flow here.
+import DriverForm, { type DriverFormInput } from './DriverForm';
 
 // ----- Helpers: browser-safe API base + URL joiner -----
+// IMPORTANT: If your Nest app uses a global prefix, make sure VITE_API_BASE_URL already includes it, e.g. http://localhost:4001/api
 const API_BASE_URL =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) ||
   (typeof window !== 'undefined' && (window as any).__API_BASE_URL__) ||
@@ -58,7 +63,7 @@ interface Driver {
   whatsappPhone?: string | null;
   altPhone?: string | null;
   licenseIssueDate?: string | null; // Date string
-  dob?: string | null;              // Date string
+  dob?: string | null; // Date string
   gender?: string | null;
   bloodGroup?: string | null;
   aadhaarNumber?: string | null;
@@ -104,22 +109,25 @@ interface Driver {
 }
 
 const DriversPage: React.FC = () => {
+  const { toast } = useToast();
+
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState<DriverFormInput | null>(null);
   const [viewingDriver, setViewingDriver] = useState<Driver | null>(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchDrivers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchDrivers = async () => {
     try {
-      const response = await getDrivers(); // server returns full drivers (includes new fields if your findAll includes them)
-      setDrivers(response || []);
+      // our service returns { data, total, page, pageSize }
+      const { data } = await getDrivers({ page: 1, pageSize: 100 });
+      setDrivers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching drivers:', error);
       toast({
@@ -134,16 +142,8 @@ const DriversPage: React.FC = () => {
 
   const handleEdit = async (driver: Driver) => {
     try {
-      const token =
-        localStorage.getItem('authToken') ||
-        localStorage.getItem('token') ||
-        localStorage.getItem('accessToken');
-
-      const res = await axios.get(`${API_BASE_URL}/drivers/${driver.id}`, {
-        headers: { Authorization: `Bearer ${token ?? ''}` },
-      });
-
-      const d = res.data as Driver;
+      // Use the service: getDrivers(id) -> internally calls GET /drivers/:id/full
+      const d: any = await getDrivers(driver.id);
 
       const driverInput: DriverFormInput = {
         id: d.id,
@@ -151,7 +151,7 @@ const DriversPage: React.FC = () => {
         phone: d.phone,
         email: d.email,
         licenseNumber: d.licenseNumber,
-        licenseExpiry: d.licenseExpiry ? d.licenseExpiry.split('T')[0] : '',
+        licenseExpiry: d.licenseExpiry ? String(d.licenseExpiry).split('T')[0] : '',
         isPartTime: !!d.isPartTime,
         isAvailable: !!d.isAvailable,
         vendorId: d.vendorId ?? undefined,
@@ -161,8 +161,8 @@ const DriversPage: React.FC = () => {
         // NEW FIELDS
         whatsappPhone: d.whatsappPhone || '',
         altPhone: d.altPhone || '',
-        licenseIssueDate: d.licenseIssueDate ? d.licenseIssueDate.split('T')[0] : '',
-        dob: d.dob ? d.dob.split('T')[0] : '',
+        licenseIssueDate: d.licenseIssueDate ? String(d.licenseIssueDate).split('T')[0] : '',
+        dob: d.dob ? String(d.dob).split('T')[0] : '',
         gender: d.gender || '',
         bloodGroup: d.bloodGroup || '',
         aadhaarNumber: d.aadhaarNumber || '',
@@ -189,22 +189,22 @@ const DriversPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const confirmed = window.confirm('Are you sure you want to delete this driver?');
-    if (!confirmed) return;
+  const confirmed = window.confirm('Are you sure you want to delete this driver?');
+  if (!confirmed) return;
 
-    try {
-      await deleteDriver(id);
-      toast({ title: 'Deleted', description: 'Driver removed successfully.' });
-      fetchDrivers(); // refresh list
-    } catch (error) {
-      console.error('Delete error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete driver.',
-        variant: 'destructive',
-      });
-    }
-  };
+  try {
+    await deleteDriverApi(id); // uses services/drivers.ts (auto prefix + auth)
+    toast({ title: 'Deleted', description: 'Driver removed successfully.' });
+    fetchDrivers(); // refresh list
+  } catch (error) {
+    console.error('Delete error:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to delete driver.',
+      variant: 'destructive',
+    });
+  }
+};
 
   const handleCloseForm = () => {
     setShowForm(false);
@@ -232,13 +232,12 @@ const DriversPage: React.FC = () => {
           <h2 className="text-3xl font-bold tracking-tight">Drivers</h2>
           <p className="text-muted-foreground">Manage your driver fleet</p>
         </div>
-         <Button asChild>
+        <Button asChild>
           <Link to="/dashboard/drivers/add">
             <Plus className="mr-2 h-4 w-4" />
             Add Driver
           </Link>
         </Button>
-      
       </div>
 
       <div className="flex items-center space-x-4">
@@ -282,8 +281,8 @@ const DriversPage: React.FC = () => {
                   {driver.vendor?.companyReg || driver.vendor?.name || 'Independent'}
                 </div>
                 <div>
-                  <span className="font-medium">Vehicle:</span>{' '}
-                  {driver.assignedVehicle?.registrationNumber || 'Not assigned'}
+                    <span className="font-medium">Vehicle:</span>{' '}
+                    {driver.assignedVehicle?.registrationNumber || 'Not assigned'}
                 </div>
                 <div>
                   <span className="font-medium">License Expiry:</span>{' '}
@@ -291,11 +290,10 @@ const DriversPage: React.FC = () => {
                 </div>
               </div>
               <div className="mt-4 flex space-x-2">
-                    <Button size="sm" variant="outline" asChild>
-                    <Link to={`/dashboard/drivers/edit/${driver.id}`}>Edit</Link>
-                  </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`/dashboard/drivers/edit/${driver.id}`}>Edit</Link>
+                </Button>
 
-               
                 <Button size="sm" variant="outline" onClick={() => setViewingDriver(driver)}>
                   View Details
                 </Button>
@@ -314,7 +312,7 @@ const DriversPage: React.FC = () => {
 
       {showForm && <DriverForm driver={editingDriver!} onClose={handleCloseForm} />}
 
-      {/* Details Modal (now includes new fields + proper image previews) */}
+      {/* Details Modal */}
       {viewingDriver && (
         <Dialog open={true} onOpenChange={() => setViewingDriver(null)}>
           <DialogContent className="max-w-2xl">
