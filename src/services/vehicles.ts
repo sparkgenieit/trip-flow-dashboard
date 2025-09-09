@@ -2,6 +2,18 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL + '/vehicles';
 
+// ---- Vehicle Types endpoint + DTO ----
+const VEHICLE_TYPES_API = `${import.meta.env.VITE_API_BASE_URL}/vehicle-types`;
+
+export type VehicleTypeDto = {
+  id: number;
+  name: string;
+  estimatedRatePerKm?: number;
+  baseFare?: number;
+  seatingCapacity?: number;
+  image?: string | null;
+};
+
 interface VehicleCreateInput {
   name: string;
   model: string;
@@ -93,6 +105,33 @@ export const assignVehicleToBooking = async (
       withCredentials: true,
     }
   );
+};
+
+// ✅ Fetch vehicle types from DB (works with plain array OR paginated response)
+export const getVehicleTypes = async (): Promise<VehicleTypeDto[]> => {
+  const token = localStorage.getItem('authToken');
+  try {
+    // Try paginated first
+    const res = await axios.get(VEHICLE_TYPES_API, {
+      params: { page: 1, pageSize: 1000 },
+      headers: { Authorization: `Bearer ${token ?? ''}` },
+      withCredentials: true,
+    });
+    const payload = res.data;
+    if (Array.isArray(payload)) return payload as VehicleTypeDto[];
+    if (Array.isArray(payload?.data)) return payload.data as VehicleTypeDto[];
+    return [];
+  } catch (e: any) {
+    // Fallback to plain array endpoint
+    const alt = await axios.get(VEHICLE_TYPES_API, {
+      headers: { Authorization: `Bearer ${token ?? ''}` },
+      withCredentials: true,
+    });
+    const data = alt.data;
+    if (Array.isArray(data)) return data as VehicleTypeDto[];
+    if (Array.isArray(data?.data)) return data.data as VehicleTypeDto[];
+    return [];
+  }
 };
 
 export const assignVehicleToTrip = (tripId: number, vehicleId: number) =>

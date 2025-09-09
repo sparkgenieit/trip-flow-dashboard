@@ -1,84 +1,75 @@
-// src/components/driver-tabs/DriverTabs.tsx
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+
 import DriverBasicInfoForm from './DriverBasicInfoForm';
 import DriverCostDetailsForm from './DriverCostDetailsForm';
 import DriverDocumentsForm from './DriverDocumentsForm';
 import DriverFeedbackReview from './DriverFeedbackReview';
 import DriverPreview from './DriverPreview';
 
-// ✅ import your working services
-import { createDriver, updateDriverMultipart } from '@/services/drivers';
+// NEW services (per-tab)
+import {
+  createDriverBasic,
+  updateDriverBasic,
+  upsertDriverCost,
+  upsertDriverDocs,
+  upsertDriverFeedback,
+} from '@/services/drivers';
 
 export type DriverFormData = {
-  // Basic Info fields only (labels match your reference)
+  // Basic
   vendorId?: number | null;
-  vehicleType?: string | null;     // shown in UI; not sent to API
-  name: string;                    // -> fullName
-  primaryMobile: string;           // -> phone
-  altMobile?: string;              // -> altPhone
-  whatsapp?: string;               // -> whatsappPhone
-  email?: string;                  // -> email
-  licenseNumber?: string;          // -> licenseNumber
-  licenseIssueDate?: string;       // -> licenseIssueDate (YYYY-MM-DD)
-  licenseExpiryDate?: string;      // -> licenseExpiry
-  dob?: string;                    // -> dob
-  aadhar?: string;                 // -> aadhaarNumber
-  pan?: string;                    // -> panNumber
-  bloodGroup?: string;             // -> bloodGroup
+  vehicleType?: string | null; // display-only
+  name: string;
+  primaryMobile: string;
+  altMobile?: string;
+  whatsapp?: string;
+  email?: string;
+  licenseNumber?: string;
+  licenseIssueDate?: string;
+  licenseExpiryDate?: string;
+  dob?: string;
+  aadhar?: string;
+  pan?: string;
+  bloodGroup?: string;
   gender?: 'Male' | 'Female' | 'Other' | '';
-  voterId?: string;                // -> voterId
-  address?: string;                // -> address
-  profileFile?: File | null;       // -> profileImage (file)
+  voterId?: string;
+  address?: string;
+  profileFile?: File | null;
 
-  // you can keep any extra fields for other steps...
-  // (omitted here for brevity)
+  // Cost Details
+  driverSalary?: number | null;
+  foodCost?: number | null;
+  accommodationCost?: number | null;
+  bhattaCost?: number | null;
+  earlyMorningCharges?: number | null;
+  eveningCharges?: number | null;
+
+  // Documents (legacy mirrors kept by form)
+  docAadhar?: File | null;
+  docPan?: File | null;
+  docLicense?: File | null;
+  docAddressProof?: File | null;
+  documents?: Array<{ id: string; type: string; file?: File | null; name?: string }>;
+
+  // Feedback & Review
+  rating?: number | null;
+  feedback?: string | null;
+  reviews?: Array<{ id: string; rating: number; description: string; createdAt: string }>;
 };
 
 type StepValue = 'basic' | 'cost' | 'docs' | 'review' | 'preview';
 
-/** ------------------- MAPPERS ------------------- **/
-
-// Old API record -> Basic tab data
-export function mapOldDriverToBasic(d: any): Partial<DriverFormData> {
-  const dt = (s?: string) => (s?.split?.('T')?.[0] ?? s ?? '');
-
-  return {
-    vendorId: d?.vendorId ?? null,
-    // vehicleType has no 1:1 in your API; keep whatever you want to display
-    name: d?.fullName || '',
-    primaryMobile: d?.phone || '',
-    altMobile: d?.altPhone || '',
-    whatsapp: d?.whatsappPhone || '',
-    email: d?.email || '',
-    licenseNumber: d?.licenseNumber || '',
-    licenseIssueDate: dt(d?.licenseIssueDate),
-    licenseExpiryDate: dt(d?.licenseExpiry),
-    dob: dt(d?.dob),
-    aadhar: d?.aadhaarNumber || '',
-    pan: d?.panNumber || '',
-    bloodGroup: d?.bloodGroup || '',
-    gender: d?.gender || '',
-    voterId: d?.voterId || '',
-    address: d?.address || '',
-    // profileFile cannot be reconstructed from a URL string; leave null
-    profileFile: null,
-  };
-}
-
-// Basic tab data -> FormData for your existing APIs
-function buildServiceFormData(f: DriverFormData): FormData {
+/** ------------------- helpers ------------------- **/
+function buildBasicFormData(f: DriverFormData): FormData {
   const fd = new FormData();
-
-  // required / common
   fd.append('fullName', f.name || '');
   fd.append('phone', f.primaryMobile || '');
 
-  // optional common fields
   if (f.email) fd.append('email', f.email);
   if (f.whatsapp) fd.append('whatsappPhone', f.whatsapp);
   if (f.altMobile) fd.append('altPhone', f.altMobile);
@@ -92,28 +83,24 @@ function buildServiceFormData(f: DriverFormData): FormData {
   if (f.pan) fd.append('panNumber', f.pan);
   if (f.voterId) fd.append('voterId', f.voterId);
   if (f.address) fd.append('address', f.address);
-
-  // relations
   if (f.vendorId) fd.append('vendorId', String(f.vendorId));
-
-  // files
   if (f.profileFile) fd.append('profileImage', f.profileFile);
-
-  // NOTE: vehicleType is display-only here; your previous service expects assignedVehicleId (not in Basic)
   return fd;
 }
-
 /** ------------------------------------------------ **/
 
 export default function DriverTabs(props: {
-  driverId?: number;              // editing mode if provided
-  vendorId?: number;              // pre-selected vendor (hide vendor dropdown)
+  driverId?: number;              // edit mode if present
+  vendorId?: number;              // pre-selected vendor
   initial?: Partial<DriverFormData>;
   onCancel?: () => void;
   onSaved?: (driverId: number) => void;
 }) {
   const { toast } = useToast();
   const [tab, setTab] = useState<StepValue>('basic');
+
+  // maintain current driver id (created on Basic tab if new)
+  const [currentId, setCurrentId] = useState<number | undefined>(props.driverId);
 
   const [form, setForm] = useState<DriverFormData>(() => ({
     vendorId: props.vendorId ?? null,
@@ -134,17 +121,31 @@ export default function DriverTabs(props: {
     voterId: '',
     address: '',
     profileFile: null,
+
+    driverSalary: null,
+    foodCost: null,
+    accommodationCost: null,
+    bhattaCost: null,
+    earlyMorningCharges: null,
+    eveningCharges: null,
+
+    docAadhar: null,
+    docPan: null,
+    docLicense: null,
+    docAddressProof: null,
+    documents: [],
+
+    rating: null,
+    feedback: '',
+    reviews: [],
     ...(props.initial ?? {}),
   }));
 
-  // hydrate when edit data arrives
   useEffect(() => {
     if (props.initial && Object.keys(props.initial).length) {
       setForm((f) => ({ ...f, ...props.initial! }));
     }
   }, [props.initial]);
-
-  const isEdit = !!props.driverId;
 
   const steps: { key: StepValue; label: string }[] = useMemo(
     () => [
@@ -167,32 +168,85 @@ export default function DriverTabs(props: {
     else props.onCancel?.();
   };
 
-  // ✅ call your working services with the mapped FormData
-  const saveDriver = async () => {
+  // --------- per-tab save handlers ----------
+  const handleSaveBasic = async () => {
     try {
-      const fd = buildServiceFormData(form);
-
-      if (isEdit && props.driverId) {
-        await updateDriverMultipart(props.driverId, fd);
-        toast({ title: 'Driver updated' });
-        props.onSaved?.(props.driverId);
+      const fd = buildBasicFormData(form);
+      if (currentId) {
+        await updateDriverBasic(currentId, fd);
+        toast({ title: 'Basic info saved' });
       } else {
-        const res = await createDriver(fd);
-        // if your create returns the created driver, prefer res.id
-        const newId = res?.id ?? Math.floor(Math.random() * 100000);
+        const created = await createDriverBasic(fd);
+        const newId = Number(created?.id);
+        if (!newId) throw new Error('Create failed: missing id');
+        setCurrentId(newId);
         toast({ title: 'Driver created' });
-        props.onSaved?.(newId);
       }
+      setTab('cost');
     } catch (e: any) {
-      console.error(e);
-      toast({ title: 'Save failed', description: String(e?.message ?? e), variant: 'destructive' });
+      toast({ title: 'Failed to save Basic info', description: String(e?.message ?? e), variant: 'destructive' });
     }
+  };
+
+  const handleSaveCost = async () => {
+    if (!currentId) return toast({ title: 'Create Basic first', variant: 'destructive' });
+    try {
+      await upsertDriverCost(currentId, {
+        driverSalary: form.driverSalary ?? null,
+        foodCost: form.foodCost ?? null,
+        accommodationCost: form.accommodationCost ?? null,
+        bhattaCost: form.bhattaCost ?? null,
+        earlyMorningCharges: form.earlyMorningCharges ?? null,
+        eveningCharges: form.eveningCharges ?? null,
+      });
+      toast({ title: 'Cost details saved' });
+      setTab('docs');
+    } catch (e: any) {
+      toast({ title: 'Failed to save Cost details', description: String(e?.message ?? e), variant: 'destructive' });
+    }
+  };
+
+  const handleSaveDocs = async () => {
+    if (!currentId) return toast({ title: 'Create Basic first', variant: 'destructive' });
+    try {
+      await upsertDriverDocs(currentId, {
+        aadhar: form.docAadhar ?? undefined,
+        pan: form.docPan ?? undefined,
+        voter: form.docAddressProof ?? undefined,
+        license: form.docLicense ?? undefined,
+      });
+      toast({ title: 'Documents saved' });
+      setTab('review');
+    } catch (e: any) {
+      toast({ title: 'Failed to save Documents', description: String(e?.message ?? e), variant: 'destructive' });
+    }
+  };
+
+  const handleSaveFeedback = async () => {
+    if (!currentId) return toast({ title: 'Create Basic first', variant: 'destructive' });
+    try {
+      await upsertDriverFeedback(currentId, {
+        rating: form.rating ?? null,
+        feedback: form.feedback ?? '',
+        reviews: form.reviews ?? [],
+      });
+      toast({ title: 'Feedback saved' });
+      setTab('preview');
+    } catch (e: any) {
+      toast({ title: 'Failed to save Feedback', description: String(e?.message ?? e), variant: 'destructive' });
+    }
+  };
+
+  const finalize = async () => {
+    if (!currentId) return toast({ title: 'Create Basic first', variant: 'destructive' });
+    // Everything is already saved per-tab. Just finish.
+    props.onSaved?.(currentId);
   };
 
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>{isEdit ? 'Edit Driver' : 'Add Driver'}</CardTitle>
+        <CardTitle>{currentId ? `Edit Driver #${currentId}` : 'Add Driver'}</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs value={tab} onValueChange={(v) => setTab(v as StepValue)} className="w-full">
@@ -212,48 +266,48 @@ export default function DriverTabs(props: {
             />
             <div className="mt-6 flex items-center justify-between">
               <Button variant="secondary" onClick={goBack}>Back</Button>
-              <Button onClick={goNext}>Update & Continue</Button>
+              <Button onClick={handleSaveBasic}>Update & Continue</Button>
             </div>
           </TabsContent>
 
           <TabsContent value="cost">
             <DriverCostDetailsForm
-              value={form as any}
-              onChange={(patch) => setForm((f) => ({ ...f, ...(patch as any) }))}
+              value={form}
+              onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
             />
             <div className="mt-6 flex items-center justify-between">
               <Button variant="secondary" onClick={goBack}>Back</Button>
-              <Button onClick={goNext}>Update & Continue</Button>
+              <Button onClick={handleSaveCost}>Update & Continue</Button>
             </div>
           </TabsContent>
 
           <TabsContent value="docs">
             <DriverDocumentsForm
-              value={form as any}
-              onChange={(patch) => setForm((f) => ({ ...f, ...(patch as any) }))}
+              value={form}
+              onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
             />
             <div className="mt-6 flex items-center justify-between">
               <Button variant="secondary" onClick={goBack}>Back</Button>
-              <Button onClick={goNext}>Update & Continue</Button>
+              <Button onClick={handleSaveDocs}>Update & Continue</Button>
             </div>
           </TabsContent>
 
           <TabsContent value="review">
             <DriverFeedbackReview
-              value={form as any}
-              onChange={(patch) => setForm((f) => ({ ...f, ...(patch as any) }))}
+              value={form}
+              onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
             />
             <div className="mt-6 flex items-center justify-between">
               <Button variant="secondary" onClick={goBack}>Back</Button>
-              <Button onClick={() => setTab('preview')}>Preview</Button>
+              <Button onClick={handleSaveFeedback}>Preview</Button>
             </div>
           </TabsContent>
 
           <TabsContent value="preview">
-            <DriverPreview value={form as any} />
+            <DriverPreview value={form} />
             <div className="mt-6 flex items-center justify-between">
               <Button variant="secondary" onClick={goBack}>Back</Button>
-              <Button onClick={saveDriver}>{isEdit ? 'Save Changes' : 'Create Driver'}</Button>
+              <Button onClick={finalize}>{currentId ? 'Finish' : 'Create Driver'}</Button>
             </div>
           </TabsContent>
         </Tabs>

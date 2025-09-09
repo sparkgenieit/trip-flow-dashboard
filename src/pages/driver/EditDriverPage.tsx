@@ -5,7 +5,7 @@ import DriverTabs, { DriverFormData } from '@/components/driver-tabs/DriverTabs'
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator
 } from '@/components/ui/breadcrumb';
-import { getDrivers } from '@/services/drivers'; // <-- ensure this exists
+import { getDriverFull } from '@/services/drivers'; // <-- ensure this exists
 
 export default function EditDriverPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,35 +21,43 @@ export default function EditDriverPage() {
       try {
         // ⭐ expects a function that returns the driver by id
         // shape can vary—map it into DriverFormData fields below.
-        const d = await getDrivers(driverId);
+        const d = await getDriverFull(driverId);
 
+        // nested tab data come from: d.costDetails, d.documents, d.feedbackMeta
         const mapped: Partial<DriverFormData> = {
           vendorId: d?.vendorId ?? null,
           vehicleType: d?.vehicleType ?? '',
           name: d?.fullName || d?.name || '',
           primaryMobile: d?.phone || d?.primaryMobile || '',
-          altMobile: d?.altMobile ?? '',
-          whatsapp: d?.whatsapp ?? '',
+          altMobile: d?.altPhone ?? '',
+          whatsapp: d?.whatsappPhone ?? '',
           email: d?.email ?? '',
           licenseNumber: d?.licenseNumber ?? '',
-          licenseIssueDate: d?.licenseIssueDate?.slice(0,10) ?? '',
-          licenseExpiryDate: d?.licenseExpiryDate?.slice(0,10) ?? '',
-          dob: d?.dob?.slice(0,10) ?? '',
-          aadhar: d?.aadhar ?? '',
-          pan: d?.pan ?? '',
+          licenseIssueDate: d?.licenseIssueDate ? String(d.licenseIssueDate).slice(0,10) : '',
+          licenseExpiryDate: d?.licenseExpiry ? String(d.licenseExpiry).slice(0,10) : '',
+          dob: d?.dob ? String(d.dob).slice(0,10) : '',
+          aadhar: d?.aadhaarNumber ?? '',
+          pan: d?.panNumber ?? '',
           bloodGroup: d?.bloodGroup ?? '',
           gender: d?.gender ?? '',
           voterId: d?.voterId ?? '',
           address: d?.address ?? '',
-          // cost/doc/review fields if your API returns them:
-          baseSalaryMonthly: d?.baseSalaryMonthly ?? null,
-          dailyAllowance: d?.dailyAllowance ?? null,
-          overtimePerHour: d?.overtimePerHour ?? null,
-          nightAllowance: d?.nightAllowance ?? null,
-          notes: d?.notes ?? '',
-          rating: d?.rating ?? null,
-          remarks: d?.remarks ?? '',
-          dateOfJoining: d?.dateOfJoining?.slice(0,10) ?? '',
+
+          // COST
+          driverSalary: d?.costDetails?.driverSalary ?? null,
+          foodCost: d?.costDetails?.foodCost ?? null,
+          accommodationCost: d?.costDetails?.accommodationCost ?? null,
+          bhattaCost: d?.costDetails?.bhattaCost ?? null,
+          earlyMorningCharges: d?.costDetails?.earlyMorningCharges ?? null,
+          eveningCharges: d?.costDetails?.eveningCharges ?? null,
+
+          // DOCS (we don’t prefill File objects; user will see “file uploaded” in preview)
+          documents: [],
+
+          // FEEDBACK
+          rating: d?.feedbackMeta?.ratingAvg ?? null,
+          feedback: d?.feedbackMeta?.remarks ?? '',
+          reviews: d?.feedbackMeta?.reviews ?? [],
         };
 
         if (mounted) setInitial(mapped);
