@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getDrivers, deleteDriver as deleteDriverApi } from '@/services/drivers';
-import axios from 'axios';
-
+import DriverDetailsModal from './DriverDetailsModal'; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -116,7 +115,9 @@ const DriversPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState<DriverFormInput | null>(null);
-  const [viewingDriver, setViewingDriver] = useState<Driver | null>(null);
+  const [viewingDriver, setViewingDriver] = useState<DriverFormInput | null>(null);
+  const [viewingLoadingId, setViewingLoadingId] = useState<number | null>(null);
+
 
   useEffect(() => {
     fetchDrivers();
@@ -137,6 +138,24 @@ const DriversPage: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+    const handleViewDetails = async (id: number) => {
+    try {
+      setViewingLoadingId(id);
+      // getDrivers(id) -> services/drivers.ts calls GET /drivers/:id/full
+      const full = await getDrivers(id);
+      setViewingDriver(full);
+    } catch (err) {
+      console.error('Failed to load driver details:', err);
+      toast({
+        title: 'Failed to load driver',
+        description: 'Could not fetch full driver details.',
+        variant: 'destructive',
+      });
+    } finally {
+      setViewingLoadingId(null);
     }
   };
 
@@ -294,8 +313,13 @@ const DriversPage: React.FC = () => {
                   <Link to={`/dashboard/drivers/edit/${driver.id}`}>Edit</Link>
                 </Button>
 
-                <Button size="sm" variant="outline" onClick={() => setViewingDriver(driver)}>
-                  View Details
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleViewDetails(driver.id)}
+                  disabled={viewingLoadingId === driver.id}
+                >
+                  {viewingLoadingId === driver.id ? 'Loading…' : 'View Details'}
                 </Button>
                 <Button
                   size="sm"
@@ -314,140 +338,10 @@ const DriversPage: React.FC = () => {
 
       {/* Details Modal */}
       {viewingDriver && (
-        <Dialog open={true} onOpenChange={() => setViewingDriver(null)}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Driver Details</DialogTitle>
-              <DialogDescription>Full driver profile</DialogDescription>
-            </DialogHeader>
-
-            {/* Images */}
-            {(viewingDriver.profileImage || viewingDriver.licenseImage || viewingDriver.rcImage) && (
-              <div className="grid grid-cols-3 gap-4 pb-2">
-                <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Profile</div>
-                  {viewingDriver.profileImage ? (
-                    <img
-                      src={joinUrl(API_BASE_URL, viewingDriver.profileImage)}
-                      alt="Profile"
-                      className="w-24 h-24 object-cover rounded-full border"
-                    />
-                  ) : (
-                    <div className="text-xs text-muted-foreground">—</div>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">License</div>
-                  {viewingDriver.licenseImage ? (
-                    <img
-                      src={joinUrl(API_BASE_URL, viewingDriver.licenseImage)}
-                      alt="License"
-                      className="w-24 h-24 object-cover rounded border"
-                    />
-                  ) : (
-                    <div className="text-xs text-muted-foreground">—</div>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">RC</div>
-                  {viewingDriver.rcImage ? (
-                    <img
-                      src={joinUrl(API_BASE_URL, viewingDriver.rcImage)}
-                      alt="RC"
-                      className="w-24 h-24 object-cover rounded border"
-                    />
-                  ) : (
-                    <div className="text-xs text-muted-foreground">—</div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="space-y-2">
-                <div>
-                  <strong>Name:</strong> {viewingDriver.fullName}
-                </div>
-                <div>
-                  <strong>Phone:</strong> {viewingDriver.phone}
-                </div>
-                <div>
-                  <strong>Email:</strong> {viewingDriver.email || '—'}
-                </div>
-                <div>
-                  <strong>WhatsApp:</strong> {viewingDriver.whatsappPhone || '—'}
-                </div>
-                <div>
-                  <strong>Alternate Phone:</strong> {viewingDriver.altPhone || '—'}
-                </div>
-                <div>
-                  <strong>Address:</strong> {viewingDriver.address || '—'}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div>
-                  <strong>License Number:</strong> {viewingDriver.licenseNumber}
-                </div>
-                <div>
-                  <strong>License Issue Date:</strong>{' '}
-                  {viewingDriver.licenseIssueDate
-                    ? new Date(viewingDriver.licenseIssueDate).toLocaleDateString()
-                    : '—'}
-                </div>
-                <div>
-                  <strong>License Expiry:</strong>{' '}
-                  {viewingDriver.licenseExpiry
-                    ? new Date(viewingDriver.licenseExpiry).toLocaleDateString()
-                    : 'Not set'}
-                </div>
-                <div>
-                  <strong>Status:</strong> {viewingDriver.isAvailable ? 'Available' : 'Unavailable'}
-                </div>
-                <div>
-                  <strong>Type:</strong> {viewingDriver.isPartTime ? 'Part Time' : 'Full Time'}
-                </div>
-                <div>
-                  <strong>Vendor:</strong>{' '}
-                  {viewingDriver.vendor?.companyReg || viewingDriver.vendor?.name || 'Independent'}
-                </div>
-                <div>
-                  <strong>Vehicle Assigned:</strong>{' '}
-                  {viewingDriver.assignedVehicle?.registrationNumber || 'Not assigned'}
-                </div>
-              </div>
-
-              <div className="space-y-2 md:col-span-2 pt-2 border-t">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <strong>DOB:</strong>{' '}
-                    {viewingDriver.dob ? new Date(viewingDriver.dob).toLocaleDateString() : '—'}
-                  </div>
-                  <div>
-                    <strong>Gender:</strong> {viewingDriver.gender || '—'}
-                  </div>
-                  <div>
-                    <strong>Blood Group:</strong> {viewingDriver.bloodGroup || '—'}
-                  </div>
-                  <div>
-                    <strong>Aadhaar:</strong> {viewingDriver.aadhaarNumber || '—'}
-                  </div>
-                  <div>
-                    <strong>PAN:</strong> {viewingDriver.panNumber || '—'}
-                  </div>
-                  <div>
-                    <strong>Voter ID:</strong> {viewingDriver.voterId || '—'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button onClick={() => setViewingDriver(null)}>Close</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <DriverDetailsModal
+          driver={viewingDriver}
+          onClose={() => setViewingDriver(null)}
+        />
       )}
     </div>
   );

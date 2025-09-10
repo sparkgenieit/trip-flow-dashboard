@@ -196,14 +196,31 @@ useEffect(() => {
         <Textarea value={v.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} placeholder="Address" />
       </div>
 
-      {/* Row 7 */}
+      {/* REPLACE Upload Profile block */}
       <div className="space-y-2 md:col-span-3">
         <Label>Upload Profile</Label>
+
+        {/* Preview existing OR chosen image */}
+        {(() => {
+          const chosen = v.profileFile ? URL.createObjectURL(v.profileFile) : undefined;
+          const previewSrc = chosen || v.profileImageUrl || '';
+          return previewSrc ? (
+            <img
+              src={previewSrc}
+              alt="Profile preview"
+              className="w-24 h-24 object-cover rounded-full border mb-2"
+            />
+          ) : null;
+        })()}
+
         <Input
           type="file"
           accept="image/*"
-          onChange={(e) => onChange({ profileFile: e.target.files?.[0] ?? null })}
+          onChange={(e) => props.onChange({ profileFile: e.target.files?.[0] ?? null })}
         />
+        {!v.profileImageUrl && !v.profileFile && (
+          <p className="text-xs text-gray-500 italic">No profile photo uploaded</p>
+        )}
       </div>
     </div>
   );

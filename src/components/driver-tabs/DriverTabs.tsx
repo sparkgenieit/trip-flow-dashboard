@@ -18,6 +18,7 @@ import {
   upsertDriverCost,
   upsertDriverDocs,
   upsertDriverFeedback,
+  getDriverFull, // ← add this
 } from '@/services/drivers';
 
 export type DriverFormData = {
@@ -40,6 +41,13 @@ export type DriverFormData = {
   voterId?: string;
   address?: string;
   profileFile?: File | null;
+
+  // >>> NEW preview fields (optional) <<<
+  profileImageUrl?: string | null;
+  docAadharUrl?: string | null;
+  docPanUrl?: string | null;
+  docVoterUrl?: string | null;
+  docLicenseUrl?: string | null;
 
   // Cost Details
   driverSalary?: number | null;
@@ -87,6 +95,46 @@ function buildBasicFormData(f: DriverFormData): FormData {
   if (f.profileFile) fd.append('profileImage', f.profileFile);
   return fd;
 }
+
+function mapDbToForm(d: any): Partial<DriverFormData> {
+  if (!d) return {};
+  return {
+    // BASIC
+    vendorId: d.vendorId ?? null,
+    vehicleType: d.vehicleType ?? '',
+    name: d.fullName || d.name || '',
+    primaryMobile: d.phone || d.primaryMobile || '',
+    altMobile: d.altPhone ?? '',
+    whatsapp: d.whatsappPhone ?? '',
+    email: d.email ?? '',
+    licenseNumber: d.licenseNumber ?? '',
+    licenseIssueDate: d.licenseIssueDate ? String(d.licenseIssueDate).slice(0, 10) : '',
+    licenseExpiryDate: d.licenseExpiry ? String(d.licenseExpiry).slice(0, 10) : '',
+    dob: d.dob ? String(d.dob).slice(0, 10) : '',
+    aadhar: d.aadhaarNumber ?? '',
+    pan: d.panNumber ?? '',
+    bloodGroup: d.bloodGroup ?? '',
+    gender: d.gender ?? '',
+    voterId: d.voterId ?? '',
+    address: d.address ?? '',
+
+    // COST
+    driverSalary: d?.costDetails?.driverSalary ?? null,
+    foodCost: d?.costDetails?.foodCost ?? null,
+    accommodationCost: d?.costDetails?.accommodationCost ?? null,
+    bhattaCost: d?.costDetails?.bhattaCost ?? null,
+    earlyMorningCharges: d?.costDetails?.earlyMorningCharges ?? null,
+    eveningCharges: d?.costDetails?.eveningCharges ?? null,
+
+    // DOCS: we never prefill File objects
+    documents: [],
+
+    // FEEDBACK
+    rating: d?.feedbackMeta?.ratingAvg ?? null,
+    feedback: d?.feedbackMeta?.remarks ?? '',
+    reviews: d?.feedbackMeta?.reviews ?? [],
+  };
+}
 /** ------------------------------------------------ **/
 
 export default function DriverTabs(props: {
@@ -121,6 +169,12 @@ export default function DriverTabs(props: {
     voterId: '',
     address: '',
     profileFile: null,
+    profileImageUrl: null,
+    docAadharUrl: null,
+    docPanUrl: null,
+    docVoterUrl: null,
+    docLicenseUrl: null,
+
 
     driverSalary: null,
     foodCost: null,
@@ -142,10 +196,37 @@ export default function DriverTabs(props: {
   }));
 
   useEffect(() => {
-    if (props.initial && Object.keys(props.initial).length) {
-      setForm((f) => ({ ...f, ...props.initial! }));
+  let alive = true;
+
+  (async () => {
+    // 1) Always set the id if provided
+    if (props.driverId && !currentId) {
+      setCurrentId(props.driverId);
     }
-  }, [props.initial]);
+
+    // 2) If caller passed initial values, merge them first
+    if (props.initial && Object.keys(props.initial).length > 0) {
+      if (!alive) return;
+      setForm((f) => ({ ...f, ...props.initial! }));
+      return; // caller-provided initial takes priority; skip fetching
+    }
+
+    // 3) Otherwise (edit mode without initial), fetch from API
+    if (props.driverId) {
+      try {
+        const d = await getDriverFull(props.driverId);
+        if (!alive) return;
+        setForm((f) => ({ ...f, ...mapDbToForm(d) }));
+      } catch (e) {
+        console.error('Failed to load driver for edit', e);
+      }
+    }
+  })();
+
+  return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [props.driverId, props.initial]);
+
 
   const steps: { key: StepValue; label: string }[] = useMemo(
     () => [
