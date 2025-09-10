@@ -1,44 +1,82 @@
 // src/components/vendor-tabs/basic-info/BasicInfoForm.tsx
 'use client';
 import React, { useEffect, useState } from 'react';
+import { createVendor, getVendor, updateVendor } from '../services/vendorService';
 
-/** Replace these with your real API calls */
+function toVendorDto(form: any) {
+  const gstPctStr = String(form.vendorMarginGstPercentage ?? '').replace(/[^\d]/g, '');
+  return {
+    name: form.vendorName,
+    email: form.email || undefined,
+    primaryMobile: form.primaryMobile || undefined,
+    altMobile: form.altMobile || undefined,
+    otherNumber: form.otherNumber || undefined,
+    country: form.country || 'India',
+    state: form.state || undefined,
+    city: form.city || undefined,
+    pincode: form.pincode || undefined,
+    address: form.address || undefined,
+
+    // logo: you likely upload separately; we keep the filename or URL if you already have it
+    logoUrl: form.logoFile ? form.logoFile.name : undefined,
+
+    // invoice
+    invoiceCompanyName: form.invoiceCompanyName || undefined,
+    invoiceAddress: form.invoiceAddress || undefined,
+    invoicePincode: form.invoicePincode || undefined,
+    invoiceGstin: form.invoiceGstin || undefined,
+    invoicePan: form.invoicePan || undefined,
+    invoiceContactNo: form.invoiceContactNo || undefined,
+    invoiceEmail: form.invoiceEmail || undefined,
+
+    // margin
+    vendorMarginPercent: form.vendorMargin || undefined,
+    vendorMarginGstType: form.vendorMarginGstType || undefined,
+    vendorMarginGstPct: gstPctStr || undefined,
+  };
+}
+
+/** API used by this component (same names as before) */
 async function apiCreateVendor(payload: any): Promise<{ id: string }> {
-  return new Promise((r) =>
-    setTimeout(() => r({ id: String(Math.floor(Math.random() * 100000)) }), 400)
-  );
+  const dto = toVendorDto(payload);
+  const res = await createVendor(dto);
+  return { id: String(res.id) };
 }
 async function apiGetVendor(id: string): Promise<any> {
-  /** Expand mock so edit mode can prefill all fields */
+  const v = await getVendor(id);
   return {
-    id,
-    vendorName: 'DVI-RAMESWARAM',
-    email: 'rsm123@gmail.com',
-    primaryMobile: '9047776899',
-    altMobile: '9360806604',
-    otherNumber: '',
-    state: 'Tamil Nadu',
-    city: 'Rameswaram',
-    country: 'India',
-    pincode: '623526',
+    id: String(v.id),
+    vendorName: v.name ?? '',
+    email: v.email ?? '',
+    primaryMobile: v.primaryMobile ?? '',
+    altMobile: v.altMobile ?? '',
+    otherNumber: v.otherNumber ?? '',
+    state: v.state ?? '',
+    city: v.city ?? '',
+    country: v.country ?? 'India',
+    pincode: v.pincode ?? '',
     role: 'Vendor',
-    vendorMargin: '5',
-    vendorMarginGstType: 'Included',
-    vendorMarginGstPercentage: '5 % GST - %5',
-    address: 'rameswaram',
-    /** Invoice */
-    invoiceCompanyName: 'DVI Hollidays',
-    invoiceAddress: 'rameswaram',
-    invoicePincode: '623526',
-    invoiceGstin: '11AABCU9603R1Z5',
-    invoicePan: 'CNFPC3241D',
-    invoiceContactNo: '9047776899',
-    invoiceEmail: 'car@dvi.co.in',
-    logoUrl: '',
+    vendorMargin: v.vendorMarginPercent != null ? String(v.vendorMarginPercent) : '',
+    vendorMarginGstType: (v.vendorMarginGstType as any) ?? 'Included',
+    vendorMarginGstPercentage:
+      v.vendorMarginGstPct != null ? `${v.vendorMarginGstPct} % GST - %${v.vendorMarginGstPct}` : '5 % GST - %5',
+    address: v.address ?? '',
+
+    // Invoice
+    invoiceCompanyName: v.invoiceCompanyName ?? '',
+    invoiceAddress: v.invoiceAddress ?? '',
+    invoicePincode: v.invoicePincode ?? '',
+    invoiceGstin: v.invoiceGstin ?? '',
+    invoicePan: v.invoicePan ?? '',
+    invoiceContactNo: v.invoiceContactNo ?? '',
+    invoiceEmail: v.invoiceEmail ?? '',
+
+    logoUrl: v.logoUrl ?? '',
   };
 }
 async function apiUpdateVendor(id: string, payload: any): Promise<void> {
-  return new Promise((r) => setTimeout(() => r(), 300));
+  const dto = toVendorDto(payload);
+  await updateVendor(id, dto);
 }
 
 export default function BasicInfoForm({

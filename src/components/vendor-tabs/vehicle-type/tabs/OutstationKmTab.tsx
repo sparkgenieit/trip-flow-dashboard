@@ -1,5 +1,13 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import {
+  initVehicleTypeMap,
+  fetchVehicleTypes,
+  replaceOutstationLimits,
+  vtId,
+  type VehicleTypeRow,
+} from '../../services/vendorPricing';
+import { useToast } from '@/hooks/use-toast';
 
 type OutstationItem = {
   id?: string;
@@ -20,6 +28,23 @@ export default function OutstationKmTab({ vendorId }: { vendorId: string }) {
     kmLimit: '',
   });
 
+  const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeRow[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        await initVehicleTypeMap();
+        const rows = await fetchVehicleTypes();
+        if (alive) setVehicleTypes(rows || []);
+      } catch (e) {
+        console.error('vehicle-types load failed', e);
+        setVehicleTypes([]);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
   const set = (k: keyof OutstationItem, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
   const addNew = () => {
@@ -39,23 +64,42 @@ export default function OutstationKmTab({ vendorId }: { vendorId: string }) {
 
   const removeRow = (idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx));
 
-  const save = () => {
-    const normalized: OutstationItem = {
-      ...form,
-      kmLimit: Number(form.kmLimit || 0),
-    };
-
-    if (isEditing && editingIndex !== null) {
-      setItems((prev) => {
-        const copy = [...prev];
-        copy[editingIndex] = { ...copy[editingIndex], ...normalized };
-        return copy;
-      });
-    } else {
-      setItems((prev) => [...prev, { ...normalized, id: String(Date.now()) }]);
-    }
-    setOpen(false);
+  const { toast } = useToast();
+const save = async () => {
+  const normalized: OutstationItem = {
+    ...form,
+    kmLimit: Number(form.kmLimit || 0),
   };
+
+  // update UI list
+  if (isEditing && editingIndex !== null) {
+    setItems((prev) => {
+      const copy = [...prev];
+      copy[editingIndex] = { ...copy[editingIndex], ...normalized };
+      return copy;
+    });
+  } else {
+    setItems((prev) => [...prev, { ...normalized, id: String(Date.now()) }]);
+  }
+
+  // persist ALL rows currently in items (replace strategy)
+  try {
+    const rows = ([
+      ...items.filter((_, idx) => !(isEditing && idx === editingIndex)),
+      { ...normalized, vehicleType: normalized.vehicleType },
+    ]).map((it) => ({
+      vehicleTypeId: vtId(it.vehicleType),
+      title: it.title,
+      km: Number(it.kmLimit || 0),
+    }));
+    await replaceOutstationLimits(vendorId, rows);
+    toast({ title: 'Saved', description: 'Outstation KM limits saved.' });
+  } catch (e: any) {
+    toast({ title: 'Error', description: e?.message ?? 'Failed to save Outstation limits' });
+  }
+
+  setOpen(false);
+};
 
   return (
     <div>
@@ -112,7 +156,7 @@ export default function OutstationKmTab({ vendorId }: { vendorId: string }) {
 
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium mb-1">
+               <label className="block text-sm font-medium mb-1">
                   Vehicle type <span className="text-rose-600">*</span>
                 </label>
                 <select
@@ -121,11 +165,11 @@ export default function OutstationKmTab({ vendorId }: { vendorId: string }) {
                   onChange={(e) => set('vehicleType', e.target.value)}
                 >
                   <option value="">Choose Vehicle Type</option>
-                  <option value="Sedan">Sedan</option>
-                  <option value="MUV 6+1">MUV 6+1</option>
-                  <option value="Innova">Innova</option>
-                  <option value="Innova Crysta 6+1">Innova Crysta 6+1</option>
-                  <option value="Tempo Traveller 12 Seater">Tempo Traveller 12 Seater</option>
+                  {vehicleTypes.map((vt) => (
+                    <option key={vt.id} value={vt.name}>
+                      {vt.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { vtId, upsertPermitCosts } from '../services/vendorPricing';
 
 /* ────────────────────────────────────────────────────────────────────────────
    Constants
@@ -143,55 +144,54 @@ export default function PermitCostList({
   }
 
   /* Add to table */
-  const handleSaveAdd = () => {
-    if (!vehicleTypeId || !stateCode) return;
-    const vt = VEHICLE_TYPES.find((v) => v.id === vehicleTypeId)!;
+  const handleSaveAdd = async () => {
+  if (!vehicleTypeId || !stateCode) return;
+  const vt = VEHICLE_TYPES.find((v) => v.id === vehicleTypeId)!;
 
-    // prefill with zeros
-    const blank: Record<StateCode, string> = INDIAN_STATES.reduce((acc, s) => {
-      acc[s.code] = '0';
-      return acc;
-    }, {} as Record<StateCode, string>);
+  const blank: Record<StateCode, string> = INDIAN_STATES.reduce((acc, s) => {
+    acc[s.code] = '0'; return acc;
+  }, {} as Record<StateCode, string>);
 
-    const rec: PermitRecord = {
-      id: crypto.randomUUID(),
-      vehicleTypeId,
-      vehicleTypeName: vt.name,
-      sourceState: stateCode as StateCode,
-      costs: blank,
-    };
+  const rec: PermitRecord = {
+    id: crypto.randomUUID(),
+    vehicleTypeId,
+    vehicleTypeName: vt.name,
+    sourceState: stateCode as StateCode,
+    costs: blank,
+  };
 
-    setRows((prev) => [...prev, rec]);
+  setRows((prev) => [...prev, rec]);
+  // Persist immediately with zeros (you can update later from modal)
+  try {
+    await upsertPermitCosts(vendorId!, [{
+      vehicleTypeId: vtId(rec.vehicleTypeId),
+      sourceState: rec.sourceState,
+      costs: Object.fromEntries(Object.entries(rec.costs).map(([k, v]) => [k, Number(v || 0)])),
+    }]);
     toast({ title: 'Added', description: 'Permit cost row created.' });
-    scrollToTable();
-  };
+  } catch (e:any) {
+    console.error(e);
+    toast({ title: 'Error', description: e.message || 'Failed to save' });
+  }
+  scrollToTable();
+};
 
-  const openModal = (id: string, m: ModalMode) => {
-    setActiveId(id);
-    setMode(m);
-    setOpen(true);
-  };
-
-  const removeRow = (id: string) => {
-    if (!confirm('Delete this permit cost entry?')) return;
-    setRows((prev) => prev.filter((r) => r.id !== id));
-  };
-
-  /* Update costs from modal */
-  const updateCost = (code: StateCode, value: string) => {
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id !== activeId
-          ? r
-          : { ...r, costs: { ...r.costs, [code]: numOnly(value) } }
-      )
-    );
-  };
-
-  const saveModal = () => {
-    setOpen(false);
+const saveModal = async () => {
+  setOpen(false);
+  const rec = active;
+  if (!rec || !vendorId) return;
+  try {
+    await upsertPermitCosts(vendorId, [{
+      vehicleTypeId: vtId(rec.vehicleTypeId),
+      sourceState: rec.sourceState,
+      costs: Object.fromEntries(Object.entries(rec.costs).map(([k, v]) => [k, Number((v as string) || 0)])),
+    }]);
     toast({ title: 'Updated', description: 'Permit costs saved.' });
-  };
+  } catch (e:any) {
+    console.error(e);
+    toast({ title: 'Error', description: e.message || 'Failed to update' });
+  }
+};
 
   /* ──────────────────────────────────────────────────────────────────────────
      Render

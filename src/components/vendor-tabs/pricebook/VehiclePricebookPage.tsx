@@ -19,6 +19,18 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import {
+  updateVendorMargin,
+} from '../services/vendorService';
+import {
+  vtId,
+  upsertDriverCosts as apiUpsertDriverCosts,
+  upsertExtraCosts as apiUpsertExtraCosts,
+  replaceLocalLimits as apiReplaceLocalLimits,
+  upsertLocalCharges as apiUpsertLocalCharges,
+  replaceOutstationLimits as apiReplaceOutLimits,
+  upsertOutstationCharges as apiUpsertOutCharges,
+} from '../services/vendorPricing';
 
 /** ───────────────────────────────────────────────────────────────────────────
  * Helpers & types
@@ -201,22 +213,95 @@ export default function VehiclePricebookPage({ vendorId }: { vendorId: number | 
   const removeOut = (typeId: string, id: string) =>
     setOutLimits((p) => ({ ...p, [typeId]: (p[typeId] || []).filter((x) => x.id !== id) }));
 
-  /** Saves (wire to your API later) */
-  const saveMargin = async () => {
-    toast({ title: 'Updated', description: 'Vendor margin saved.' });
-  };
-  const saveDriverCosts = async () => {
-    toast({ title: 'Updated', description: 'Driver cost details saved.' });
-  };
-  const saveExtraCosts = async () => {
-    toast({ title: 'Updated', description: 'Vehicle extra cost details saved.' });
-  };
-  const saveLocal = async () => {
-    toast({ title: 'Updated', description: 'Local pricebook saved.' });
-  };
-  const saveOut = async () => {
-    toast({ title: 'Updated', description: 'Outstation pricebook saved.' });
-  };
+const saveMargin = async () => {
+  await updateVendorMargin(vendorId, {
+    vendorMarginPercent: marginPercent,
+    vendorMarginGstType: gstType,
+    vendorMarginGstPct: gstPercent,
+  });
+  toast({ title: 'Updated', description: 'Vendor margin saved.' });
+};
+
+const saveDriverCosts = async () => {
+  const rows = types.slice(0, 2).map((t) => {
+    const k = toKey(t.id);
+    const row = driverCosts[k] || {};
+    return {
+      vehicleTypeId: vtId(k),
+      driverBhatta: Number(row.driverCost || 0),
+      foodCost: Number(row.foodCost || 0),
+      accomodationCost: Number(row.accommodationCost || 0),
+      extraCost: Number(row.extraCost || 0),
+      morningPerHour: Number(row.morningCharges || 0),
+      eveningPerHour: 0,
+    };
+  });
+  await apiUpsertDriverCosts(vendorId, rows);
+  toast({ title: 'Updated', description: 'Driver cost details saved.' });
+};
+
+const saveExtraCosts = async () => {
+  const rows = types.slice(0, 2).map((t) => {
+    const k = toKey(t.id);
+    const row = extraCosts[k] || {};
+    return {
+      vehicleTypeId: vtId(k),
+      extraKm: Number(row.extraKm || 0),
+      extraHour: Number(row.extraHour || 0),
+      earlyMorning: Number(row.earlyMorning || 0),
+      evening: Number(row.evening || 0),
+    };
+  });
+  await apiUpsertExtraCosts(vendorId, rows);
+  toast({ title: 'Updated', description: 'Vehicle extra cost details saved.' });
+};
+
+const saveLocal = async () => {
+  // limits
+  const limitRows = Object.entries(localLimits).flatMap(([k, list]) =>
+    (list || []).map((item) => ({
+      vehicleTypeId: vtId(k),
+      title: item.title,
+      hours: Number(item.hours || 0),
+      km: Number(item.km || 0),
+    }))
+  );
+  await apiReplaceLocalLimits(vendorId, limitRows);
+
+  // charges (one per type from inputs)
+  const chargeRows = Object.entries(localCharges).map(([k, amount]) => ({
+    vehicleTypeId: vtId(k),
+    startDate: localStartDate || undefined,
+    endDate: localEndDate || undefined,
+    amount: Number(amount || 0),
+  }));
+  await apiUpsertLocalCharges(vendorId, chargeRows);
+
+  toast({ title: 'Updated', description: 'Local pricebook saved.' });
+};
+
+const saveOut = async () => {
+  // limits
+  const limitRows = Object.entries(outLimits).flatMap(([k, list]) =>
+    (list || []).map((item) => ({
+      vehicleTypeId: vtId(k),
+      title: item.title,
+      km: Number(item.km || 0),
+    }))
+  );
+  await apiReplaceOutLimits(vendorId, limitRows);
+
+  // charges
+  const chargeRows = Object.entries(outCharges).map(([k, amount]) => ({
+    vehicleTypeId: vtId(k),
+    startDate: outStartDate || undefined,
+    endDate: outEndDate || undefined,
+    amount: Number(amount || 0),
+  }));
+  await apiUpsertOutCharges(vendorId, chargeRows);
+
+  toast({ title: 'Updated', description: 'Outstation pricebook saved.' });
+};
 
   /** ─────────────────────────────────────────────────────────────────────────
    * Render
