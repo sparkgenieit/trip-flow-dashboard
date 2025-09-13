@@ -4,7 +4,9 @@ import {
   initVehicleTypeMap,
   fetchVehicleTypes,
   replaceOutstationLimits,
+  listOutstation,     // <-- NEW
   vtId,
+  vtName,             // <-- NEW
   type VehicleTypeRow,
 } from '../../services/vendorPricing';
 import { useToast } from '@/hooks/use-toast';
@@ -31,19 +33,31 @@ export default function OutstationKmTab({ vendorId }: { vendorId: string }) {
   const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeRow[]>([]);
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        await initVehicleTypeMap();
-        const rows = await fetchVehicleTypes();
-        if (alive) setVehicleTypes(rows || []);
-      } catch (e) {
-        console.error('vehicle-types load failed', e);
-        setVehicleTypes([]);
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
+  let alive = true;
+  (async () => {
+    try {
+      await initVehicleTypeMap();
+      const vts = await fetchVehicleTypes();
+      if (alive) setVehicleTypes(vts || []);
+
+      // NEW: fetch saved limits
+      const { limits } = await listOutstation(vendorId);
+      if (!alive) return;
+
+      const mapped = (limits || []).map((r: any) => ({
+        id: String(r.id ?? `${r.vehicleTypeId}-${Math.random()}`),
+        vehicleType: vtName(r.vehicleTypeId) || '',
+        title: r.title ?? '',
+        kmLimit: r.km ?? '',
+      }));
+      setItems(mapped);
+    } catch (e) {
+      console.error('outstation limits load failed', e);
+      setItems([]);
+    }
+  })();
+  return () => { alive = false; };
+}, [vendorId]);
 
   const set = (k: keyof OutstationItem, v: any) => setForm((f) => ({ ...f, [k]: v }));
 

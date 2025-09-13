@@ -1,43 +1,67 @@
+// REPLACE-FILE: src/components/vendor-tabs/vehicles/VendorVehicleList.tsx
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { listVendorVehicles, type VehicleRow } from '../services/vendorVehicles';
+import { fetchVehicleTypes, initVehicleTypeMap, type VehicleTypeRow } from '../services/vendorPricing';
 
-export interface Vehicle {
-  id: string;
-  regNo: string;
-  type: string;
-  expiry: string;
-  status: boolean;
+function fmt(d?: string | null) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return '';
+  const dd = String(dt.getDate()).padStart(2, '0');
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const yyyy = dt.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 type Props = {
-  branchId: string;
-  /** Called when parent wants to show the "Add Vehicle" form (optional hook). */
+  vendorId: string | number;
+  branchId?: string | number;            // reserved if you link vehicles to branches later
   onRequestAdd?: () => void;
-  /** Called when user clicks Edit on a row. */
-  onRequestEdit?: (row: Vehicle) => void;
+  onRequestEdit?: (row: VehicleRow) => void;
+  refreshKey?: number;                   // change to force reload after save
 };
 
 export default function VendorVehicleList({
+  vendorId,
   branchId,
   onRequestAdd,
   onRequestEdit,
+  refreshKey,
 }: Props) {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [rows, setRows] = useState<VehicleRow[]>([]);
+  const [vt, setVt] = useState<VehicleTypeRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 🔹 Replace with real API call using branchId
-    async function fetchVehicles() {
+    let alive = true;
+    (async () => {
       setLoading(true);
-      const res: Vehicle[] = [
-        { id: '1', regNo: 'TN65A0500', type: 'Sedan',   expiry: '31/08/2050', status: true },
-        { id: '2', regNo: 'TN65A0400', type: 'MUV 6+1', expiry: '31/08/2050', status: true },
-      ];
-      setVehicles(res);
-      setLoading(false);
-    }
-    fetchVehicles();
-  }, [branchId]);
+      try {
+        await initVehicleTypeMap();
+        const [types, vehicles] = await Promise.all([
+          fetchVehicleTypes().catch(() => []),
+          listVendorVehicles(vendorId),
+        ]);
+        if (!alive) return;
+        setVt(types || []);
+        // If you add branch linkage later, filter here by branchId
+        setRows(vehicles || []);
+      } catch (e) {
+        console.error('Failed to load vehicles', e);
+        if (alive) setRows([]);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [vendorId, branchId, refreshKey]);
+
+  const vtNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    (vt || []).forEach((v) => m.set(v.id, v.name));
+    return (id?: number) => (id ? m.get(id) || `#${id}` : '');
+  }, [vt]);
 
   if (loading) {
     return <p className="p-4 text-sm text-muted-foreground">Loading vehicles…</p>;
@@ -70,34 +94,42 @@ export default function VendorVehicleList({
           </tr>
         </thead>
         <tbody>
-          {vehicles.map((v, i) => (
-            <tr key={v.id} className="border-t text-sm">
-              <td className="p-2">{i + 1}</td>
-              <td className="p-2">{v.regNo}</td>
-              <td className="p-2">{v.type}</td>
-              <td className="p-2">{v.expiry}</td>
-              <td className="p-2">
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${
-                    v.status
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-200 text-gray-600'
-                  }`}
-                >
-                  {v.status ? 'Active' : 'Inactive'}
-                </span>
-              </td>
-              <td className="p-2">
-                <button
-                  type="button"
-                  onClick={() => onRequestEdit?.(v)}
-                  className="text-indigo-600 hover:text-indigo-700"
-                >
-                  Edit
-                </button>
+          {rows.length === 0 ? (
+            <tr>
+              <td className="p-4 text-center text-sm text-muted-foreground" colSpan={6}>
+                No vehicles yet.
               </td>
             </tr>
-          ))}
+          ) : (
+            rows.map((v, i) => (
+              <tr key={v.id} className="border-t text-sm">
+                <td className="p-2">{i + 1}</td>
+                <td className="p-2">{v.registrationNumber}</td>
+                <td className="p-2">{vtNameById(v.vehicleTypeId)}</td>
+                <td className="p-2">{fmt(v.vehicleExpiryDate as any)}</td>
+                <td className="p-2">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${
+                      (v as any).status === 'inactive'
+                        ? 'bg-gray-200 text-gray-600'
+                        : 'bg-green-100 text-green-700'
+                    }`}
+                  >
+                    {(v as any).status ?? 'available'}
+                  </span>
+                </td>
+                <td className="p-2">
+                  <button
+                    type="button"
+                    onClick={() => onRequestEdit?.(v)}
+                    className="text-indigo-600 hover:text-indigo-700"
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>

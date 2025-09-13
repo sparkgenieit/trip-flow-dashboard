@@ -54,6 +54,8 @@ const toNum = (v: string | number | undefined | null) =>
 // ---------------- VehicleType dynamic map ------------------------------------
 /** internal map (by exact name & normalized name) */
 const NAME_TO_ID: Record<string, number> = { ...VEHICLE_TYPE_ID_MAP };
+/** reverse map for display */
+const ID_TO_NAME: Record<number, string> = {};
 
 function norm(s: string) {
   return String(s)
@@ -88,6 +90,7 @@ export async function initVehicleTypeMap(force = false): Promise<void> {
   rows.forEach((vt) => {
     NAME_TO_ID[vt.name] = vt.id;          // exact label
     NAME_TO_ID[norm(vt.name)] = vt.id;    // normalized
+    ID_TO_NAME[vt.id] = vt.name;          // reverse lookup
   });
   (initVehicleTypeMap as any).__done = true;
 }
@@ -106,6 +109,12 @@ export function vtId(slug: string | number): number {
   }
   return hit;
 }
+
+export function vtName(id?: number | null): string {
+  if (!id) return '';
+  return ID_TO_NAME[id] ?? '';
+}
+
 
 // ---------------- Driver Costs ----------------
 export type DriverCostDTO = {
@@ -174,6 +183,23 @@ export async function listLocal(vendorId: number | string): Promise<{ limits: Lo
   return http(`${BASE}/vendors/${vendorId}/local`, { method: 'GET', headers: authHeaders() });
 }
 
+export type VendorExtraCost = {
+  id?: number;
+  vehicleTypeId: number;
+  extraKm?: number | null;
+  extraHour?: number | null;
+  earlyMorning?: number | null;
+  evening?: number | null;
+};
+
+export async function listExtraCosts(
+  vendorId: number | string
+): Promise<VendorExtraCost[]> {
+  const { data } = await api.get(`/vendors/${vendorId}/extra-costs`);
+  // If your backend returns `{rows:[...]}` instead of `[...]`, do:
+  // return data?.rows ?? [];
+  return data ?? [];
+}
 // ---------------- Outstation Pricebook ----------------
 export type OutstationLimitDTO = { vehicleTypeId: number; title: string; km: number };
 export type OutstationChargeDTO = { vehicleTypeId: number; startDate?: string; endDate?: string; amount: number };

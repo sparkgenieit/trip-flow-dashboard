@@ -4,7 +4,9 @@ import {
   initVehicleTypeMap,
   fetchVehicleTypes,
   upsertDriverCosts,
+  fetchDriverCostsByVendor,   // <-- NEW
   vtId,
+  vtName,                      // <-- NEW
   type VehicleTypeRow,
 } from '../../services/vendorPricing';
 import { useToast } from '@/hooks/use-toast';
@@ -39,19 +41,35 @@ export default function DriverCostTab({ vendorId }: { vendorId: string }) {
   const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeRow[]>([]);
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        await initVehicleTypeMap();
-        const rows = await fetchVehicleTypes();
-        if (alive) setVehicleTypes(rows || []);
-      } catch (e) {
-        console.error('vehicle-types load failed', e);
-        setVehicleTypes([]);
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
+  let alive = true;
+  (async () => {
+    try {
+      await initVehicleTypeMap();
+      const vts = await fetchVehicleTypes();
+      if (alive) setVehicleTypes(vts || []);
+
+      // NEW: load saved rows for this vendor
+      const saved = await fetchDriverCostsByVendor(vendorId);
+      if (!alive) return;
+
+      const mapped = (saved || []).map((r: any) => ({
+        id: String(r.id ?? `${r.vehicleTypeId}-${Math.random()}`),
+        vehicleType: r.vehicleTypeName || vtName(r.vehicleTypeId) || '',
+        driverBhatta: r.driverBhatta ?? '',
+        foodCost: r.foodCost ?? '',
+        accomCost: r.accomodationCost ?? '',
+        extraCost: r.extraCost ?? '',
+        morningCharges: r.morningPerHour ?? '',
+        eveningCharges: r.eveningPerHour ?? '',
+      }));
+      setItems(mapped);
+    } catch (e) {
+      console.error('driver-cost load failed', e);
+      setItems([]);
+    }
+  })();
+  return () => { alive = false; };
+}, [vendorId]);
 
   const set = (k: keyof DriverCost, v: any) => setForm((f) => ({ ...f, [k]: v }));
 

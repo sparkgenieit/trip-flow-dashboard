@@ -1,3 +1,4 @@
+// === FILE: VehiclePricebookPage.tsx === #realcode
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -23,7 +24,12 @@ import {
   updateVendorMargin,
 } from '../services/vendorService';
 import {
-  vtId,
+  fetchVehicleTypes,
+  fetchDriverCostsByVendor,           // <-- NEW (read)
+  listLocal as apiListLocal,          // <-- NEW (read)
+  listOutstation as apiListOut,       // <-- NEW (read)
+  listExtraCosts as apiListExtra,     // <-- NEW (read)
+  // write APIs
   upsertDriverCosts as apiUpsertDriverCosts,
   upsertExtraCosts as apiUpsertExtraCosts,
   replaceLocalLimits as apiReplaceLocalLimits,
@@ -35,14 +41,14 @@ import {
 /** ───────────────────────────────────────────────────────────────────────────
  * Helpers & types
  * ─────────────────────────────────────────────────────────────────────────── */
-type VehicleTypeLite = { id: string; name: string };
+type VehicleTypeLite = { id: number | string; name: string };
 const DEFAULT_TYPES: VehicleTypeLite[] = [
   { id: 'sedan', name: 'Sedan' },
   { id: 'innova', name: 'Innova' },
 ];
 
 const numOnly = (v: string) => v.replace(/[^\d.]/g, '');
-const toKey = (id: string) => String(id);
+const toKey = (id: string | number) => String(id);
 
 type GstType = 'Included' | 'Excluded';
 const GST_OPTIONS = [
@@ -80,6 +86,26 @@ type LocalByType = Record<string, LocalLimit[]>;
 type OutByType = Record<string, OutstationLimit[]>;
 type ChargeByType = Record<string, string>;
 
+/** pick the latest charge per vehicleTypeId by startDate (nulls treated as oldest) */
+function latestChargePerType(rows: any[]): ChargeByType {
+  const map: Record<string, { amount: number; startDate?: string | null }> = {};
+  for (const r of rows || []) {
+    const key = toKey(r.vehicleTypeId);
+    const sd = r.startDate ? String(r.startDate) : null;
+    if (!map[key]) {
+      map[key] = { amount: r.amount ?? 0, startDate: sd };
+    } else {
+      const prev = map[key].startDate;
+      if ((prev ?? '') < (sd ?? '')) {
+        map[key] = { amount: r.amount ?? 0, startDate: sd };
+      }
+    }
+  }
+  const out: ChargeByType = {};
+  for (const [k, v] of Object.entries(map)) out[k] = String(v.amount ?? '');
+  return out;
+}
+
 /** ───────────────────────────────────────────────────────────────────────────
  * Main component
  * ─────────────────────────────────────────────────────────────────────────── */
@@ -115,50 +141,153 @@ export default function VehiclePricebookPage({ vendorId }: { vendorId: number | 
   const [openOut, setOpenOut] = useState(false);
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Init with exactly TWO rows (Sedan & Innova) OR from your API (first two)
+  // Load EVERYTHING dynamically from DB
   // ───────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    // If you later want to load from API, slice to 2:
-    // const fetched: VehicleTypeLite[] = await fetch(...);
-    // setTypes((fetched && fetched.length) ? fetched.slice(0, 2) : DEFAULT_TYPES);
+    let alive = true;
+    (async () => {
+      try {
+        // 1) VEHICLE TYPES
+        const vtRows = await fetchVehicleTypes();
+        const fetched: VehicleTypeLite[] =
+          (vtRows || []).map((r: any) => ({ id: r.id, name: r.name }));
+        if (!alive) return;
+        setTypes(fetched.length ? fetched : DEFAULT_TYPES);
 
-    const blankDrivers: Record<string, DriverCostRow> = {};
-    const blankExtras: Record<string, ExtraCostRow> = {};
-    const blanksLocal: LocalByType = {};
-    const blanksOut: OutByType = {};
-    const blanksLocalCharge: ChargeByType = {};
-    const blanksOutCharge: ChargeByType = {};
+        // bootstrap blanks for all types
+        const blankDrivers: Record<string, DriverCostRow> = {};
+        const blankExtras: Record<string, ExtraCostRow> = {};
+        const blanksLocal: LocalByType = {};
+        const blanksOut: OutByType = {};
+        const blanksLocalCharge: ChargeByType = {};
+        const blanksOutCharge: ChargeByType = {};
 
-    DEFAULT_TYPES.slice(0, 2).forEach((t) => {
-      const k = toKey(t.id);
-      blankDrivers[k] = {
-        vehicleTypeId: k,
-        driverCost: '0',
-        foodCost: '0',
-        accommodationCost: '0',
-        extraCost: '0',
-        morningCharges: '0',
-      };
-      blankExtras[k] = {
-        vehicleTypeId: k,
-        extraKm: '0',
-        extraHour: '0',
-        earlyMorning: '0',
-        evening: '0',
-      };
-      blanksLocal[k] = [];
-      blanksOut[k] = [];
-      blanksLocalCharge[k] = '';
-      blanksOutCharge[k] = '';
-    });
+        (fetched.length ? fetched : DEFAULT_TYPES).forEach((t) => {
+          const k = toKey(t.id);
+          blankDrivers[k] = {
+            vehicleTypeId: k,
+            driverCost: '0',
+            foodCost: '0',
+            accommodationCost: '0',
+            extraCost: '0',
+            morningCharges: '0',
+          };
+          blankExtras[k] = {
+            vehicleTypeId: k,
+            extraKm: '0',
+            extraHour: '0',
+            earlyMorning: '0',
+            evening: '0',
+          };
+          blanksLocal[k] = [];
+          blanksOut[k] = [];
+          blanksLocalCharge[k] = '';
+          blanksOutCharge[k] = '';
+        });
 
-    setDriverCosts(blankDrivers);
-    setExtraCosts(blankExtras);
-    setLocalLimits(blanksLocal);
-    setOutLimits(blanksOut);
-    setLocalCharges(blanksLocalCharge);
-    setOutCharges(blanksOutCharge);
-  }, []);
+        setDriverCosts(blankDrivers);
+        setExtraCosts(blankExtras);
+        setLocalLimits(blanksLocal);
+        setOutLimits(blanksOut);
+        setLocalCharges(blanksLocalCharge);
+        setOutCharges(blanksOutCharge);
+
+        // 2) DRIVER COSTS
+        const savedDrivers = await fetchDriverCostsByVendor(Number(vendorId));
+        if (!alive) return;
+        if (savedDrivers?.length) {
+          setDriverCosts((prev) => {
+            const next = { ...prev };
+            for (const r of savedDrivers) {
+              const k = toKey(r.vehicleTypeId);
+              next[k] = {
+                vehicleTypeId: k,
+                driverCost: String(r.driverBhatta ?? '0'),
+                foodCost: String(r.foodCost ?? '0'),
+                accommodationCost: String(r.accomodationCost ?? '0'),
+                extraCost: String(r.extraCost ?? '0'),
+                morningCharges: String(r.morningChargesPerHour ?? r.morningPerHour ?? '0'),
+              };
+            }
+            return next;
+          });
+        }
+
+        // 3) LOCAL (limits + charges)
+        const local = await apiListLocal(Number(vendorId));
+        if (!alive) return;
+        if (Array.isArray(local?.limits)) {
+          setLocalLimits((prev) => {
+            const groups = { ...prev };
+            for (const l of local.limits) {
+              const k = toKey(l.vehicleTypeId);
+              const item: LocalLimit = {
+                id: String(l.id ?? crypto.randomUUID()),
+                vehicleTypeId: k,
+                title: String(l.title ?? ''),
+                hours: String(l.hours ?? ''),
+                km: String(l.km ?? ''),
+              };
+              groups[k] = [...(groups[k] || []), item];
+            }
+            return groups;
+          });
+        }
+        if (Array.isArray(local?.charges)) {
+          setLocalCharges(latestChargePerType(local.charges));
+        }
+
+        // 4) OUTSTATION (limits + charges)
+        const out = await apiListOut(Number(vendorId));
+        if (!alive) return;
+        if (Array.isArray(out?.limits)) {
+          setOutLimits((prev) => {
+            const groups = { ...prev };
+            for (const l of out.limits) {
+              const k = toKey(l.vehicleTypeId);
+              const item: OutstationLimit = {
+                id: String(l.id ?? crypto.randomUUID()),
+                vehicleTypeId: k,
+                title: String(l.title ?? ''),
+                km: String(l.km ?? ''),
+              };
+              groups[k] = [...(groups[k] || []), item];
+            }
+            return groups;
+          });
+        }
+        if (Array.isArray(out?.charges)) {
+          setOutCharges(latestChargePerType(out.charges));
+        }
+
+        // 5) EXTRA COSTS
+        const extras = await apiListExtra(Number(vendorId));
+        if (!alive) return;
+        if (Array.isArray(extras)) {
+          setExtraCosts((prev) => {
+            const next = { ...prev };
+            for (const r of extras) {
+              const k = toKey(r.vehicleTypeId);
+              next[k] = {
+                vehicleTypeId: k,
+                extraKm: String(r.extraKm ?? '0'),
+                extraHour: String(r.extraHour ?? '0'),
+                earlyMorning: String(r.earlyMorning ?? '0'),
+                evening: String(r.evening ?? '0'),
+              };
+            }
+            return next;
+          });
+        }
+      } catch (e) {
+        console.error('pricebook init failed', e);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [vendorId]);
 
   /** Update helpers */
   const updateDriver = (id: string, key: keyof DriverCostRow, v: string) =>
@@ -223,11 +352,11 @@ const saveMargin = async () => {
 };
 
 const saveDriverCosts = async () => {
-  const rows = types.slice(0, 2).map((t) => {
+  const rows = types.map((t) => {
     const k = toKey(t.id);
     const row = driverCosts[k] || {};
     return {
-      vehicleTypeId: vtId(k),
+      vehicleTypeId: Number(t.id),
       driverBhatta: Number(row.driverCost || 0),
       foodCost: Number(row.foodCost || 0),
       accomodationCost: Number(row.accommodationCost || 0),
@@ -241,11 +370,11 @@ const saveDriverCosts = async () => {
 };
 
 const saveExtraCosts = async () => {
-  const rows = types.slice(0, 2).map((t) => {
+  const rows = types.map((t) => {
     const k = toKey(t.id);
     const row = extraCosts[k] || {};
     return {
-      vehicleTypeId: vtId(k),
+      vehicleTypeId: Number(t.id),
       extraKm: Number(row.extraKm || 0),
       extraHour: Number(row.extraHour || 0),
       earlyMorning: Number(row.earlyMorning || 0),
@@ -260,7 +389,7 @@ const saveLocal = async () => {
   // limits
   const limitRows = Object.entries(localLimits).flatMap(([k, list]) =>
     (list || []).map((item) => ({
-      vehicleTypeId: vtId(k),
+      vehicleTypeId: Number(k),
       title: item.title,
       hours: Number(item.hours || 0),
       km: Number(item.km || 0),
@@ -270,7 +399,7 @@ const saveLocal = async () => {
 
   // charges (one per type from inputs)
   const chargeRows = Object.entries(localCharges).map(([k, amount]) => ({
-    vehicleTypeId: vtId(k),
+    vehicleTypeId: Number(k),
     startDate: localStartDate || undefined,
     endDate: localEndDate || undefined,
     amount: Number(amount || 0),
@@ -284,7 +413,7 @@ const saveOut = async () => {
   // limits
   const limitRows = Object.entries(outLimits).flatMap(([k, list]) =>
     (list || []).map((item) => ({
-      vehicleTypeId: vtId(k),
+      vehicleTypeId: Number(k),
       title: item.title,
       km: Number(item.km || 0),
     }))
@@ -293,7 +422,7 @@ const saveOut = async () => {
 
   // charges
   const chargeRows = Object.entries(outCharges).map(([k, amount]) => ({
-    vehicleTypeId: vtId(k),
+    vehicleTypeId: Number(k),
     startDate: outStartDate || undefined,
     endDate: outEndDate || undefined,
     amount: Number(amount || 0),
@@ -356,7 +485,7 @@ const saveOut = async () => {
         </div>
       </section>
 
-      {/* Driver Cost Details (2 vehicle types with text boxes) */}
+      {/* Driver Cost Details (all vehicle types) */}
       <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Driver Cost Details</h3>
@@ -364,7 +493,7 @@ const saveOut = async () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {types.slice(0, 2).map((t) => {
+          {types.map((t) => {
             const k = toKey(t.id);
             const row = driverCosts[k];
             return (
@@ -403,7 +532,7 @@ const saveOut = async () => {
         </div>
       </section>
 
-      {/* Vehicle Extra Cost Details (2 vehicle types with text boxes) */}
+      {/* Vehicle Extra Cost Details (all vehicle types) */}
       <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Vehicle Extra Cost Details</h3>
@@ -411,7 +540,7 @@ const saveOut = async () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {types.slice(0, 2).map((t) => {
+          {types.map((t) => {
             const k = toKey(t.id);
             const row = extraCosts[k];
             return (
@@ -464,7 +593,7 @@ const saveOut = async () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {types.slice(0, 2).map((t) => {
+          {types.map((t) => {
             const k = toKey(t.id);
             const chips = localLimits[k] || [];
             return (
@@ -518,7 +647,7 @@ const saveOut = async () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {types.slice(0, 2).map((t) => {
+          {types.map((t) => {
             const k = toKey(t.id);
             const chips = outLimits[k] || [];
             return (
@@ -572,7 +701,7 @@ const saveOut = async () => {
               <Select value={localForm.typeId} onValueChange={(v) => setLocalForm((f) => ({ ...f, typeId: v }))}>
                 <SelectTrigger><SelectValue placeholder="Choose Vehicle Type" /></SelectTrigger>
                 <SelectContent>
-                  {types.slice(0, 2).map((t) => (
+                  {types.map((t) => (
                     <SelectItem key={t.id} value={toKey(t.id)}>{t.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -617,7 +746,7 @@ const saveOut = async () => {
               <Select value={outForm.typeId} onValueChange={(v) => setOutForm((f) => ({ ...f, typeId: v }))}>
                 <SelectTrigger><SelectValue placeholder="Choose Vehicle Type" /></SelectTrigger>
                 <SelectContent>
-                  {types.slice(0, 2).map((t) => (
+                  {types.map((t) => (
                     <SelectItem key={t.id} value={toKey(t.id)}>{t.name}</SelectItem>
                   ))}
                 </SelectContent>
