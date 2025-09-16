@@ -1,6 +1,7 @@
+// === FILE: PermitCostList.tsx === #realcode
 'use client';
 
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +21,8 @@ import {
 } from '@/components/ui/dialog';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { vtId, upsertPermitCosts } from '../services/vendorPricing';
+import { upsertPermitCosts, fetchVehicleTypes, fetchPermitPrefill } from '../services/vendorPricing';
+import { useNavigate } from 'react-router-dom';
 
 /* ────────────────────────────────────────────────────────────────────────────
    Constants
@@ -28,13 +30,10 @@ import { vtId, upsertPermitCosts } from '../services/vendorPricing';
 
 type VehicleTypeLite = { id: string; name: string };
 
-// keep a couple of defaults (you can swap for your API later)
-const VEHICLE_TYPES: VehicleTypeLite[] = [
-  { id: 'sedan', name: 'Sedan' },
-  { id: 'muv_6p1', name: 'MUV 6+1' },
-  { id: 'innova', name: 'Innova' },
-  { id: 'innova_crysta_6p1', name: 'Innova Crysta 6+1' },
-  { id: 'tempo_12', name: 'Tempo Traveller 12 Seater' },
+// very small fallback if API fails (IDs are strings to keep the rest of the code unchanged)
+const VEHICLE_TYPES_FALLBACK: VehicleTypeLite[] = [
+  { id: '1', name: 'Sedan' },
+  { id: '2', name: 'Innova' },
 ];
 
 // 28 states + 8 UTs (names match your screenshots)
@@ -73,7 +72,6 @@ const INDIAN_STATES = [
   { code: 'UP', name: 'Uttar Pradesh' },
   { code: 'UK', name: 'Uttarakhand' },
   { code: 'WB', name: 'West Bengal' },
-  // (J&K and Ladakh aren’t in your screenshots, so skipped intentionally)
 ] as const;
 
 type StateCode = (typeof INDIAN_STATES)[number]['code'];
@@ -90,10 +88,18 @@ type PermitRecord = {
   vehicleTypeId: string;
   vehicleTypeName: string;
   sourceState: StateCode;
-  costs: Record<StateCode, string>; // cost per destination state
+  costs: Record<StateCode, string>;
 };
 
 type ModalMode = 'view' | 'edit';
+
+// shape returned by fetchPermitPrefill()
+type PrefillRow = {
+  vehicleTypeId: number;
+  vehicleTypeName?: string;
+  sourceState: string;
+  costs: Record<string, number>;
+};
 
 /* ────────────────────────────────────────────────────────────────────────────
    Component
@@ -107,6 +113,27 @@ export default function PermitCostList({
   onBack?: () => void;
 }) {
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Dynamic vehicle types from DB
+  const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeLite[]>([]);
+  useEffect(() => {
+    let on = true;
+    (async () => {
+      try {
+        const rows = await fetchVehicleTypes();
+        if (!on) return;
+        const mapped: VehicleTypeLite[] =
+          (rows || []).map((r: any) => ({ id: String(r.id), name: r.name }));
+        setVehicleTypes(mapped.length ? mapped : VEHICLE_TYPES_FALLBACK);
+      } catch {
+        setVehicleTypes(VEHICLE_TYPES_FALLBACK);
+      }
+    })();
+    return () => {
+      on = false;
+    };
+  }, []);
 
   // Add Permit Cost form
   const [vehicleTypeId, setVehicleTypeId] = useState<string>('');
@@ -143,55 +170,140 @@ export default function PermitCostList({
     setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth' }), 10);
   }
 
-  /* Add to table */
-  const handleSaveAdd = async () => {
-  if (!vehicleTypeId || !stateCode) return;
-  const vt = VEHICLE_TYPES.find((v) => v.id === vehicleTypeId)!;
+  // ---------- Prefill: load from server on mount & after saves ----------
+  function blankCosts(): Record<StateCode, string> {
+    return INDIAN_STATES.reduce((acc, s) => {
+      acc[s.code] = '0';
+      return acc;
+    }, {} as Record<StateCode, string>);
+  }
 
-  const blank: Record<StateCode, string> = INDIAN_STATES.reduce((acc, s) => {
-    acc[s.code] = '0'; return acc;
-  }, {} as Record<StateCode, string>);
+  function mapPrefillToPermitRecord(p: PrefillRow): PermitRecord {
+    const idStable = `${p.vehicleTypeId}-${p.sourceState}`;
+    const costs: Record<StateCode, string> = blankCosts();
+    INDIAN_STATES.forEach((s) => {
+      const v = p.costs?.[s.code];
+      costs[s.code] = v != null ? String(v) : '0';
+    });
+    // try to find label from current vehicleTypes list
+    const vtName =
+      vehicleTypes.find((v) => Number(v.id) === p.vehicleTypeId)?.name ||
+      p.vehicleTypeName ||
+      String(p.vehicleTypeId);
+    return {
+      id: idStable,
+      vehicleTypeId: String(p.vehicleTypeId),
+      vehicleTypeName: vtName,
+      sourceState: p.sourceState as StateCode,
+      costs,
+    };
+  }
 
-  const rec: PermitRecord = {
-    id: crypto.randomUUID(),
-    vehicleTypeId,
-    vehicleTypeName: vt.name,
-    sourceState: stateCode as StateCode,
-    costs: blank,
+  const loadRowsFromServer = async () => {
+    if (!vendorId) return;
+    try {
+      const prefill = await fetchPermitPrefill(vendorId); // returns PrefillRow[]
+      const mapped = (prefill as PrefillRow[]).map(mapPrefillToPermitRecord);
+      setRows(mapped);
+    } catch (e: any) {
+      console.error(e);
+      setRows([]);
+      toast({
+        title: 'Error',
+        description: e?.message || 'Failed to load permit costs',
+        variant: 'destructive',
+      });
+    }
   };
 
-  setRows((prev) => [...prev, rec]);
-  // Persist immediately with zeros (you can update later from modal)
-  try {
-    await upsertPermitCosts(vendorId!, [{
-      vehicleTypeId: vtId(rec.vehicleTypeId),
-      sourceState: rec.sourceState,
-      costs: Object.fromEntries(Object.entries(rec.costs).map(([k, v]) => [k, Number(v || 0)])),
-    }]);
-    toast({ title: 'Added', description: 'Permit cost row created.' });
-  } catch (e:any) {
-    console.error(e);
-    toast({ title: 'Error', description: e.message || 'Failed to save' });
-  }
-  scrollToTable();
-};
+  useEffect(() => {
+    // load once vendorId is known
+    loadRowsFromServer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorId, vehicleTypes.length]); // re-map when vehicle type names arrive
 
-const saveModal = async () => {
-  setOpen(false);
-  const rec = active;
-  if (!rec || !vendorId) return;
-  try {
-    await upsertPermitCosts(vendorId, [{
-      vehicleTypeId: vtId(rec.vehicleTypeId),
-      sourceState: rec.sourceState,
-      costs: Object.fromEntries(Object.entries(rec.costs).map(([k, v]) => [k, Number((v as string) || 0)])),
-    }]);
-    toast({ title: 'Updated', description: 'Permit costs saved.' });
-  } catch (e:any) {
-    console.error(e);
-    toast({ title: 'Error', description: e.message || 'Failed to update' });
+  /* === Eye/Pencil/Delete handlers ========================================== */
+  function openModal(id: string, m: ModalMode) {
+    setActiveId(id);
+    setMode(m);
+    setOpen(true);
   }
-};
+
+  function updateCost(code: StateCode, value: string) {
+    const v = numOnly(value);
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === activeId ? { ...r, costs: { ...r.costs, [code]: v } } : r
+      )
+    );
+  }
+
+  function removeRow(id: string) {
+    setRows((prev) => prev.filter((r) => r.id !== id));
+  }
+  /* ========================================================================= */
+
+  /* Add to table */
+  const handleSaveAdd = async () => {
+    if (!vehicleTypeId || !stateCode) return;
+    const vt = vehicleTypes.find((v) => v.id === vehicleTypeId);
+    if (!vt) return;
+
+    const blank: Record<StateCode, string> = INDIAN_STATES.reduce((acc, s) => {
+      acc[s.code] = '0';
+      return acc;
+    }, {} as Record<StateCode, string>);
+
+    const rec: PermitRecord = {
+      id: crypto.randomUUID(),
+      vehicleTypeId,
+      vehicleTypeName: vt.name,
+      sourceState: stateCode as StateCode,
+      costs: blank,
+    };
+
+    setRows((prev) => [...prev, rec]);
+    try {
+      await upsertPermitCosts(vendorId!, [
+        {
+          vehicleTypeId: Number(rec.vehicleTypeId),
+          sourceState: rec.sourceState,
+          costs: Object.fromEntries(
+            Object.entries(rec.costs).map(([k, v]) => [k, Number(v || 0)])
+          ),
+        },
+      ]);
+      toast({ title: 'Added', description: 'Permit cost row created.' });
+      // re-hydrate from server so the table always matches DB
+      await loadRowsFromServer();
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Error', description: e.message || 'Failed to save' });
+    }
+    scrollToTable();
+  };
+
+  const saveModal = async () => {
+    setOpen(false);
+    const rec = active;
+    if (!rec || !vendorId) return;
+    try {
+      await upsertPermitCosts(vendorId, [
+        {
+          vehicleTypeId: Number(rec.vehicleTypeId),
+          sourceState: rec.sourceState,
+          costs: Object.fromEntries(
+            Object.entries(rec.costs).map(([k, v]) => [k, Number((v as string) || 0)])
+          ),
+        },
+      ]);
+      toast({ title: 'Updated', description: 'Permit costs saved.' });
+      await loadRowsFromServer();
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Error', description: e.message || 'Failed to update' });
+    }
+  };
 
   /* ──────────────────────────────────────────────────────────────────────────
      Render
@@ -229,7 +341,7 @@ const saveModal = async () => {
                 <SelectValue placeholder="Choose Vehicle Type" />
               </SelectTrigger>
               <SelectContent>
-                {VEHICLE_TYPES.map((v) => (
+                {vehicleTypes.map((v) => (
                   <SelectItem key={v.id} value={v.id}>
                     {v.name}
                   </SelectItem>
@@ -365,9 +477,14 @@ const saveModal = async () => {
             Back
           </Button>
           <Button
-            onClick={() =>
-              toast({ title: 'Submitted', description: 'Permit details submitted.' })
-            }
+            onClick={() => {
+              toast({ title: 'Submitted', description: 'Permit details submitted.' });
+              try {
+                navigate('/dashboard/vendors', { replace: true });
+              } catch {
+                if (typeof window !== 'undefined') window.location.assign('/dashboard/vendors');
+              }
+            }}
           >
             Submit
           </Button>

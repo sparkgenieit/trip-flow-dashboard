@@ -85,7 +85,17 @@ function newEmptyBranch(): Branch {
   };
 }
 
-export default function BranchesForm({ vendorId }: { vendorId?: string }) {
+export default function BranchesForm(
+  {
+    vendorId,
+    onBack,
+    onContinue,
+  }: {
+    vendorId?: string;
+    onBack?: () => void;
+    onContinue?: () => void;
+  }
+) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -142,6 +152,22 @@ export default function BranchesForm({ vendorId }: { vendorId?: string }) {
       setSaving(false);
     }
   };
+
+  const saveAndContinue = async () => {
+  try {
+    await saveAll();           // reuse existing save logic
+    onContinue?.();            // advance to Step 3 (if provided)
+  } catch (err) {
+    // stay on this step if save fails
+    console.error('Failed to save branches', err);
+  }
+};
+
+const handleBack = () => {
+  if (onBack) onBack();        // go back to Step 1 (if provided)
+  else if (typeof window !== 'undefined') window.history.back();
+};
+
 
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading branches…</div>;
@@ -287,17 +313,26 @@ export default function BranchesForm({ vendorId }: { vendorId?: string }) {
         ))}
       </div>
 
-      <div className="pt-2">
-        <button
-          type="button"
-          onClick={saveAll}
-          className="px-4 py-2 rounded bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
-          disabled={saving || !vendorId}
-          title={!vendorId ? 'Save Basic Info first' : 'Save branches'}
-        >
-          {saving ? 'Saving…' : 'Save Branches'}
-        </button>
-      </div>
+      <div className="pt-2 flex items-center justify-between">
+  <button
+    type="button"
+    onClick={handleBack}
+    className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+    title="Back to Basic Info"
+  >
+    Back
+  </button>
+
+  <button
+    type="button"
+    onClick={saveAndContinue}
+    className="px-4 py-2 rounded bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+    disabled={saving || !vendorId}
+    title={!vendorId ? 'Save Basic Info first' : 'Save and continue'}
+  >
+    {saving ? 'Saving…' : 'Save & Continue'}
+  </button>
+</div>
     </div>
   );
 }

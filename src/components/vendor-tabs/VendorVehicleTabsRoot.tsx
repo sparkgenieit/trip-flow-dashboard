@@ -41,20 +41,27 @@ export default function VendorVehicleTabsRoot({
   const renderStep = () => {
     switch (step) {
       case 1:
-        return (
-          <BasicInfoForm
-            mode={mode}
-            vendorId={vendorId}
-            onSaved={(createdId) => {
-              // capture new id the first time we save in ADD flow
-              if (!vendorId) setVendorId(createdId);
-              // move forward
-              setStep(2);
-            }}
-          />
-        );
+  return (
+    <BasicInfoForm
+      mode={mode}
+      vendorId={vendorId}
+      onSaved={(created) => {
+        // BasicInfoForm sends a *string* id in ADD flow.
+        // Be defensive and also accept { id } shapes.
+        const id = typeof created === 'string' ? created : created?.id;
+        if (id && !vendorId) setVendorId(id);
+        setStep(2);
+      }}
+    />
+  );
       case 2:
-        return <BranchesForm vendorId={vendorId} />;
+  return (
+    <BranchesForm
+      vendorId={vendorId}
+      onBack={() => setStep(1)}
+      onContinue={() => setStep(3)}
+    />
+  );
       case 3:
         return <VehicleTypeTabs vendorId={vendorId} />;
       case 4:

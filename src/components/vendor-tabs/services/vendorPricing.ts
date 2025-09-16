@@ -1,14 +1,5 @@
 export type VehicleTypeRow = { id: number; name: string };
 
-// Keep your old seed map as a fallback (optional)
-export const VEHICLE_TYPE_ID_MAP: Record<string, number> = {
-  sedan: 1,
-  innova: 2,
-  'muv_6p1': 3,
-  'innova_crysta_6p1': 4,
-  'tempo_12': 5,
-};
-
 const BASE = (() => {
   const local = import.meta.env.VITE_API_BASE_URL_LOCAL as string | undefined; // e.g. http://localhost:4001
   const prod  = import.meta.env.VITE_API_BASE_URL as string | undefined;       // fallback if not local
@@ -21,13 +12,17 @@ const BASE = (() => {
 })();
 
 function getAuthToken(): string | null {
-  // mirror DriverForm
-  return (
-    localStorage.getItem('token') ||
-    localStorage.getItem('accessToken') ||
-    localStorage.getItem('authToken') ||
-    null
-  );
+  if (typeof window === 'undefined') return null; // SSR/Node guard
+  try {
+    return (
+      localStorage.getItem('token') ||
+      localStorage.getItem('accessToken') ||
+      localStorage.getItem('authToken') ||
+      null
+    );
+  } catch {
+    return null;
+  }
 }
 function authHeaders() {
   const token = getAuthToken();
@@ -53,7 +48,7 @@ const toNum = (v: string | number | undefined | null) =>
 
 // ---------------- VehicleType dynamic map ------------------------------------
 /** internal map (by exact name & normalized name) */
-const NAME_TO_ID: Record<string, number> = { ...VEHICLE_TYPE_ID_MAP };
+const NAME_TO_ID: Record<string, number> = {};
 /** reverse map for display */
 const ID_TO_NAME: Record<number, string> = {};
 
@@ -69,17 +64,24 @@ function norm(s: string) {
 
 /** GET from backend for dropdowns */
 export async function fetchVehicleTypes(): Promise<VehicleTypeRow[]> {
+  // Try /vendors/vehicle-types → /vendors/vehicle-types/all → /vehicle-types
   try {
     return await http<VehicleTypeRow[]>(`${BASE}/vendors/vehicle-types`, {
       method: 'GET',
       headers: authHeaders(),
     });
-  } catch (e: any) {
-    // If route is shadowed or you exposed it top-level:
-    return await http<VehicleTypeRow[]>(`${BASE}/vehicle-types`, {
-      method: 'GET',
-      headers: authHeaders(),
-    });
+  } catch {
+    try {
+      return await http<VehicleTypeRow[]>(`${BASE}/vendors/vehicle-types/all`, {
+        method: 'GET',
+        headers: authHeaders(),
+      });
+    } catch {
+      return await http<VehicleTypeRow[]>(`${BASE}/vehicle-types`, {
+        method: 'GET',
+        headers: authHeaders(),
+      });
+    }
   }
 }
 
@@ -115,6 +117,55 @@ export function vtName(id?: number | null): string {
   return ID_TO_NAME[id] ?? '';
 }
 
+type PermitCostDbRow = {
+  vendorId: number;
+  vehicleTypeId: number;
+  sourceState: string; // e.g. "AP"
+  destState: string;   // e.g. "TN"
+  amount: number;
+};
+
+// UI row required by your Permit tab
+export type GroupedPermitRow = {
+  vehicleTypeId: number;
+  vehicleTypeName: string;
+  sourceState: string;
+  costs: Record<string, number>; // { "AP": 0, "TN": 500, ... }
+};
+
+function groupPermitCosts(rows: PermitCostDbRow[]): GroupedPermitRow[] {
+  const byKey: Record<string, GroupedPermitRow> = {};
+  for (const r of rows) {
+    const key = `${r.vehicleTypeId}::${r.sourceState}`;
+    if (!byKey[key]) {
+      byKey[key] = {
+        vehicleTypeId: r.vehicleTypeId,
+        vehicleTypeName: vtName(r.vehicleTypeId) || String(r.vehicleTypeId),
+        sourceState: r.sourceState,
+        costs: {},
+      };
+    }
+    byKey[key].costs[r.destState] = Number(r.amount ?? 0);
+  }
+  return Object.values(byKey);
+}
+
+/** Convenience wrapper used by the Permit tab to prefill its grid */
+export async function fetchPermitPrefill(
+  vendorId: number | string
+): Promise<GroupedPermitRow[]> {
+  // ensure type names are ready for vtName()
+  await initVehicleTypeMap();
+
+  try {
+    // Prefer backend grouping if available
+    return await listPermitCostsGrouped(vendorId);
+  } catch {
+    // Fall back to fetching raw rows and grouping on the client
+    const raw = await listPermitCosts(vendorId);
+    return groupPermitCosts(raw as unknown as PermitCostDbRow[]);
+  }
+}
 
 // ---------------- Driver Costs ----------------
 export type DriverCostDTO = {
@@ -195,10 +246,10 @@ export type VendorExtraCost = {
 export async function listExtraCosts(
   vendorId: number | string
 ): Promise<VendorExtraCost[]> {
-  const { data } = await api.get(`/vendors/${vendorId}/extra-costs`);
-  // If your backend returns `{rows:[...]}` instead of `[...]`, do:
-  // return data?.rows ?? [];
-  return data ?? [];
+  return http<VendorExtraCost[]>(
+    `${BASE}/vendors/${vendorId}/extra-costs`,
+    { method: 'GET', headers: authHeaders() }
+  );
 }
 // ---------------- Outstation Pricebook ----------------
 export type OutstationLimitDTO = { vehicleTypeId: number; title: string; km: number };
@@ -237,6 +288,30 @@ export async function listPermitCosts(vendorId: number | string) {
     method: 'GET',
     headers: authHeaders(),
   });
+}
+
+export async function listPermitCostsGrouped(
+  vendorId: number | string
+): Promise<GroupedPermitRow[]> {
+  try {
+    // If your backend exposes the grouped endpoint, use it
+    const grouped = await http<GroupedPermitRow[]>(
+      `${BASE}/vendors/${vendorId}/permit-costs/grouped`,
+      { method: 'GET', headers: authHeaders() }
+    );
+
+    // populate vehicle type names if the backend doesn’t include them
+    await initVehicleTypeMap();
+    return grouped.map(g => ({
+      ...g,
+      vehicleTypeName: g.vehicleTypeName || vtName(g.vehicleTypeId) || String(g.vehicleTypeId),
+    }));
+  } catch {
+    // Otherwise, fetch raw rows and group locally
+    const raw = await listPermitCosts(vendorId);
+    await initVehicleTypeMap();
+    return groupPermitCosts(raw as unknown as PermitCostDbRow[]);
+  }
 }
 
 // ---------------- Helpers ----------------
