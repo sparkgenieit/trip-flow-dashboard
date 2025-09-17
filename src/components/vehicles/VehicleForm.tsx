@@ -1,5 +1,4 @@
-
-// src/components/vehicles/VehicleForm.tsx
+// src/components/vehicles/VehicleForm.tsx 
 import React, { useState, useEffect } from 'react';
 import { createVehicle, updateVehicle } from '@/services/vehicles';
 import { Button } from '@/components/ui/button';
@@ -33,26 +32,41 @@ interface Vendor {
 
 interface Vehicle {
   id: number;
-  name: string;
-  model: string;
+  // images
   image: string | string[];
-  capacity: number;
+  additional_images?: string[] | any;
+
+  // identifiers
   registrationNumber: string;
-  price: number;
-  originalPrice: number;
-  status: string;
-  comfortLevel: number;
-  lastServicedDate: string;
+  chassisNumber?: string | null;
+
+  status: string; // 'available' | 'maintenance' | 'out_of_service'
+  createdBy?: 'ADMIN' | 'VENDOR' | 'SUPER_ADMIN';
+
+  // dates & maintenance
+  lastServicedDate?: string; // ISO
+  vehicleExpiryDate?: string; // ISO
+
+  // pricing removed from schema (kept optional to read if backend hydrates)
+  price?: number;
+
+  // misc charges
+  extraKmCharge?: number | null;
+  earlyMorningCharges?: number | null;
+  eveningCharges?: number | null;
+  videoUrl?: string | null;
+
+  // insurance
+  insurancePolicyNumber?: string;
+  insuranceStartDate?: string; // ISO
+  insuranceEndDate?: string; // ISO
+  insuranceContactNumber?: string;
+  rtoCode?: string;
+
+  // relations
   vehicleTypeId: number;
   vendorId: number | null;
   vendor?: Vendor;
-
-  // Optional insurance fields if backend already provides them
-  insurancePolicyNumber?: string;
-  insuranceStartDate?: string; // ISO
-  insuranceEndDate?: string;   // ISO
-  insuranceContactNumber?: string;
-  rtoCode?: string;
 }
 
 interface VehicleFormProps {
@@ -70,14 +84,19 @@ const toSrc = (p: string) =>
 
 const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   const [formData, setFormData] = useState({
-    vehicleNumber: '',
-    typeId: '',
-    type: '',
-    comfortLevel: '',
-    ratePerKm: '',
+    vehicleNumber: '', // UI field; sent as registrationNumber
+    typeId: '', // vehicleTypeId
     status: 'available',
     vendorId: '',
     lastServicedDate: '',
+
+    // NEW schema fields
+    chassisNumber: '',
+    vehicleExpiryDate: '',
+    extraKmCharge: '',
+    earlyMorningCharges: '',
+    eveningCharges: '',
+    videoUrl: '',
 
     // --- Insurance & FC ---
     insurancePolicyNumber: '',
@@ -94,26 +113,26 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]); // only for newly selected files
 
   const setSingleImageFile = (file: File | null) => {
-  // Revoke any existing preview blob URLs
-  setImagePreviews((old) => {
-    old.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u));
-    return [];
-  });
+    // Revoke any existing preview blob URLs
+    setImagePreviews((old) => {
+      old.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u));
+      return [];
+    });
 
-  if (file) {
-    const url = URL.createObjectURL(file);
-    setImageFiles([file]);
-    setImagePreviews([url]);
-  } else {
-    setImageFiles([]);
-    setImagePreviews([]);
-  }
-};
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setImageFiles([file]);
+      setImagePreviews([url]);
+    } else {
+      setImageFiles([]);
+      setImagePreviews([]);
+    }
+  };
 
-const handlePickSingleImage: React.ChangeEventHandler<HTMLInputElement> = (e) => {
-  const file = e.target.files?.[0] ?? null;
-  setSingleImageFile(file);
-};
+  const handlePickSingleImage: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0] ?? null;
+    setSingleImageFile(file);
+  };
 
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'vehicle' | 'insurance'>('vehicle');
@@ -129,48 +148,59 @@ const handlePickSingleImage: React.ChangeEventHandler<HTMLInputElement> = (e) =>
     }
   }, [isAdmin]);
 
-  // REPLACE the whole useEffect that depends on [vehicle, vehicleTypes]
-// (keep the effect that fetches vehicle types as-is)
+  useEffect(() => {
+    if (!vehicle || vehicleTypes.length === 0) return;
 
-useEffect(() => {
-  if (!vehicle || vehicleTypes.length === 0) return;
+    setFormData({
+      vehicleNumber: vehicle.registrationNumber ?? '',
+      typeId: String(vehicle.vehicleTypeId || ''),
+      status: vehicle.status ?? 'available',
+      vendorId: (vehicle.vendorId ?? vehicle.vendor?.id ?? '').toString(),
+      lastServicedDate: vehicle.lastServicedDate
+        ? String(vehicle.lastServicedDate).split('T')[0]
+        : '',
 
-  setFormData({
-    vehicleNumber: vehicle.registrationNumber ?? '',
-    typeId: String(vehicle.vehicleTypeId || ''),
-    type: vehicle.model ?? '',
-    comfortLevel: vehicle.comfortLevel?.toString() ?? '',
-    ratePerKm: vehicle.price?.toString() ?? '',
-    status: vehicle.status ?? 'available',
-    vendorId: (vehicle.vendorId ?? vehicle.vendor?.id ?? '').toString(),
-    lastServicedDate: vehicle.lastServicedDate
-      ? vehicle.lastServicedDate.split('T')[0]
-      : '',
+      // NEW fields
+      chassisNumber: (vehicle.chassisNumber ?? '') as string,
+      vehicleExpiryDate: vehicle.vehicleExpiryDate
+        ? String(vehicle.vehicleExpiryDate).split('T')[0]
+        : '',
+      extraKmCharge:
+        vehicle.extraKmCharge != null ? String(vehicle.extraKmCharge) : '',
+      earlyMorningCharges:
+        vehicle.earlyMorningCharges != null
+          ? String(vehicle.earlyMorningCharges)
+          : '',
+      eveningCharges:
+        vehicle.eveningCharges != null ? String(vehicle.eveningCharges) : '',
+      videoUrl: vehicle.videoUrl ?? '',
 
-    // --- Insurance & FC (gracefully handle missing fields) ---
-    insurancePolicyNumber: vehicle.insurancePolicyNumber ?? '',
-    insuranceStartDate: vehicle.insuranceStartDate
-      ? vehicle.insuranceStartDate.split('T')[0]
-      : '',
-    insuranceEndDate: vehicle.insuranceEndDate
-      ? vehicle.insuranceEndDate.split('T')[0]
-      : '',
-    insuranceContactNumber: vehicle.insuranceContactNumber ?? '',
-    rtoCode: vehicle.rtoCode ?? '',
-  });
-  // Do NOT pre-fill imagePreviews with existing images; those are shown separately below.
-}, [vehicle, vehicleTypes]);
-
+      // Insurance
+      insurancePolicyNumber: vehicle.insurancePolicyNumber ?? '',
+      insuranceStartDate: vehicle.insuranceStartDate
+        ? String(vehicle.insuranceStartDate).split('T')[0]
+        : '',
+      insuranceEndDate: vehicle.insuranceEndDate
+        ? String(vehicle.insuranceEndDate).split('T')[0]
+        : '',
+      insuranceContactNumber: vehicle.insuranceContactNumber ?? '',
+      rtoCode: vehicle.rtoCode ?? '',
+    });
+    // Do NOT pre-fill imagePreviews with existing images; those are shown separately.
+  }, [vehicle, vehicleTypes]);
 
   useEffect(() => {
     const fetchVehicleTypes = async () => {
       const token = localStorage.getItem('authToken');
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/vehicle-types`, {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : '',
-          },
-        });
+        const res = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/vehicle-types`,
+          {
+            headers: {
+              Authorization: token ? `Bearer ${token}` : '',
+            },
+          }
+        );
         const data = await res.json();
         setVehicleTypes(data);
       } catch (err) {
@@ -205,84 +235,111 @@ useEffect(() => {
     return imgs.map(toSrc);
   }, [vehicle]);
 
-  // Revoke blob URLs on unmount/change
-useEffect(() => {
-  return () => {
-    imagePreviews.forEach((u) => u.startsWith('blob:') && URL.revokeObjectURL(u));
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+  // Revoke blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      imagePreviews.forEach(
+        (u) => u.startsWith('blob:') && URL.revokeObjectURL(u)
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Submit
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
+    e.preventDefault();
+    setLoading(true);
 
-  try {
-    const formDataToSend = new FormData();
-    formDataToSend.append('name', formData.vehicleNumber);
-    formDataToSend.append('model', formData.type);
-    formDataToSend.append('registrationNumber', formData.vehicleNumber);
-    formDataToSend.append('capacity', String(4));
-    formDataToSend.append('comfortLevel', String(formData.comfortLevel));
-    formDataToSend.append('status', String(formData.status));
-    if (formData.lastServicedDate) {
-      formDataToSend.append('lastServicedDate', formData.lastServicedDate);
+    try {
+      const formDataToSend = new FormData();
+
+      // ── Core Vehicle fields (schema-aligned)
+      formDataToSend.append('registrationNumber', formData.vehicleNumber);
+      formDataToSend.append('status', String(formData.status));
+      if (formData.lastServicedDate) {
+        formDataToSend.append('lastServicedDate', formData.lastServicedDate);
+      }
+      formDataToSend.append('vehicleTypeId', String(formData.typeId || ''));
+
+      // NEW: prisma fields (optional)
+      if (formData.chassisNumber)
+        formDataToSend.append('chassisNumber', formData.chassisNumber);
+      if (formData.vehicleExpiryDate)
+        formDataToSend.append('vehicleExpiryDate', formData.vehicleExpiryDate);
+      if (formData.extraKmCharge !== '')
+        formDataToSend.append('extraKmCharge', String(formData.extraKmCharge));
+      if (formData.earlyMorningCharges !== '')
+        formDataToSend.append(
+          'earlyMorningCharges',
+          String(formData.earlyMorningCharges)
+        );
+      if (formData.eveningCharges !== '')
+        formDataToSend.append(
+          'eveningCharges',
+          String(formData.eveningCharges)
+        );
+      if (formData.videoUrl)
+        formDataToSend.append('videoUrl', formData.videoUrl);
+
+      // Vendor
+      if (isAdmin && formData.vendorId) {
+        formDataToSend.append('vendorId', String(formData.vendorId));
+      }
+
+      // Insurance & FC
+      if (formData.insurancePolicyNumber)
+        formDataToSend.append(
+          'insurancePolicyNumber',
+          formData.insurancePolicyNumber
+        );
+      if (formData.insuranceStartDate)
+        formDataToSend.append(
+          'insuranceStartDate',
+          formData.insuranceStartDate
+        );
+      if (formData.insuranceEndDate)
+        formDataToSend.append('insuranceEndDate', formData.insuranceEndDate);
+      if (formData.insuranceContactNumber)
+        formDataToSend.append(
+          'insuranceContactNumber',
+          formData.insuranceContactNumber
+        );
+      if (formData.rtoCode) formDataToSend.append('rtoCode', formData.rtoCode);
+
+      // Image (schema: single 'image' string + optional additional_images JSON)
+      if (imageFiles[0]) {
+        formDataToSend.append('image', imageFiles[0]);
+      }
+
+      if (vehicle?.id) {
+        await updateVehicle(vehicle.id, formDataToSend);
+      } else {
+        await createVehicle(formDataToSend);
+      }
+
+      toast({
+        title: 'Success',
+        description: vehicle
+          ? 'Vehicle updated successfully'
+          : 'Vehicle created successfully',
+      });
+
+      onClose();
+    } catch (error: any) {
+      console.error('Error saving vehicle:', error);
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to save vehicle';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
     }
-    formDataToSend.append('vehicleTypeId', String(formData.typeId));
-
-    if (isAdmin && formData.vendorId) {
-      formDataToSend.append('vendorId', String(formData.vendorId));
-    }
-
-    // Pricing (server maps priceSpec -> price/originalPrice)
-    const priceInt = Math.trunc(Number(formData.ratePerKm || 0));
-    const originalPriceInt = Math.trunc(Number(formData.ratePerKm || 0));
-    formDataToSend.append('priceSpec[priceType]', 'BASE');
-    formDataToSend.append('priceSpec[price]', String(priceInt));
-    formDataToSend.append('priceSpec[originalPrice]', String(originalPriceInt));
-    formDataToSend.append('priceSpec[currency]', 'INR');
-
-    // --- Insurance & FC (safe to include; backend can ignore if not used) ---
-    if (formData.insurancePolicyNumber)
-      formDataToSend.append('insurancePolicyNumber', formData.insurancePolicyNumber);
-    if (formData.insuranceStartDate)
-      formDataToSend.append('insuranceStartDate', formData.insuranceStartDate);
-    if (formData.insuranceEndDate)
-      formDataToSend.append('insuranceEndDate', formData.insuranceEndDate);
-    if (formData.insuranceContactNumber)
-      formDataToSend.append('insuranceContactNumber', formData.insuranceContactNumber);
-    if (formData.rtoCode)
-      formDataToSend.append('rtoCode', formData.rtoCode);
-
-    // Attach newly selected images
-    imageFiles.forEach((file) => formDataToSend.append('images', file));
-
-    if (vehicle?.id) {
-      await updateVehicle(vehicle.id, formDataToSend);
-    } else {
-      await createVehicle(formDataToSend);
-    }
-
-    toast({
-      title: 'Success',
-      description: vehicle ? 'Vehicle updated successfully' : 'Vehicle created successfully',
-    });
-
-    onClose();
-  } catch (error: any) {
-    console.error('Error saving vehicle:', error);
-    const message =
-      error?.response?.data?.message ||
-      error?.message ||
-      'Failed to save vehicle';
-    toast({
-      title: 'Error',
-      description: message,
-      variant: 'destructive',
-    });
-  } finally {
-    setLoading(false);
-  }};
+  };
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -290,16 +347,21 @@ useEffect(() => {
         <DialogHeader>
           <DialogTitle>{vehicle ? 'Edit Vehicle' : 'Add New Vehicle'}</DialogTitle>
           <DialogDescription>
-            {vehicle ? 'Update vehicle information' : 'Enter details for the new vehicle'}
+            {vehicle
+              ? 'Update vehicle information'
+              : 'Enter details for the new vehicle'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="max-h-[70vh] overflow-y-auto pr-2 space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="max-h-[70vh] overflow-y-auto pr-2 space-y-4"
+        >
           <Tabs
-                value={activeTab}
-                onValueChange={(v) => setActiveTab(v as 'vehicle' | 'insurance')}
-                className="w-full"
-              >
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as 'vehicle' | 'insurance')}
+            className="w-full"
+          >
             <TabsList className="grid grid-cols-2 w-full">
               <TabsTrigger value="vehicle">Vehicle</TabsTrigger>
               <TabsTrigger value="insurance">Insurance &amp; FC</TabsTrigger>
@@ -312,7 +374,9 @@ useEffect(() => {
                 <Input
                   id="vehicleNumber"
                   value={formData.vehicleNumber}
-                  onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, vehicleNumber: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -321,7 +385,9 @@ useEffect(() => {
                 <Label>Vehicle Type</Label>
                 <Select
                   value={formData.typeId}
-                  onValueChange={(value) => setFormData({ ...formData, typeId: value })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, typeId: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select vehicle type" />
@@ -337,27 +403,13 @@ useEffect(() => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="comfortLevel">Comfort Level (1–5)</Label>
+                <Label htmlFor="chassisNumber">Chassis Number</Label>
                 <Input
-                  id="comfortLevel"
-                  type="number"
-                  min="1"
-                  max="5"
-                  value={formData.comfortLevel}
-                  onChange={(e) => setFormData({ ...formData, comfortLevel: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ratePerKm">Rate per KM</Label>
-                <Input
-                  id="ratePerKm"
-                  type="number"
-                  step="0.01"
-                  value={formData.ratePerKm}
-                  onChange={(e) => setFormData({ ...formData, ratePerKm: e.target.value })}
-                  required
+                  id="chassisNumber"
+                  value={formData.chassisNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, chassisNumber: e.target.value })
+                  }
                 />
               </div>
 
@@ -383,7 +435,8 @@ useEffect(() => {
                         alt="preview"
                         className="w-24 h-24 object-cover border rounded"
                         onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                          (e.currentTarget as HTMLImageElement).style.display =
+                            'none';
                         }}
                       />
                       <button
@@ -406,7 +459,8 @@ useEffect(() => {
                         alt="current"
                         className="w-24 h-24 object-cover border rounded"
                         onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                          (e.currentTarget as HTMLImageElement).style.display =
+                            'none';
                         }}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
@@ -417,12 +471,13 @@ useEffect(() => {
                 )}
               </div>
 
-
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, status: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
@@ -440,7 +495,9 @@ useEffect(() => {
                   <Label htmlFor="vendorId">Vendor</Label>
                   <Select
                     value={formData.vendorId}
-                    onValueChange={(value) => setFormData({ ...formData, vendorId: value })}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, vendorId: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select vendor" />
@@ -462,7 +519,91 @@ useEffect(() => {
                   id="lastServicedDate"
                   type="date"
                   value={formData.lastServicedDate}
-                  onChange={(e) => setFormData({ ...formData, lastServicedDate: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      lastServicedDate: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              {/* NEW: Vehicle Expiry Date */}
+              <div className="space-y-2">
+                <Label htmlFor="vehicleExpiryDate">Vehicle Expiry Date</Label>
+                <Input
+                  id="vehicleExpiryDate"
+                  type="date"
+                  value={formData.vehicleExpiryDate}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      vehicleExpiryDate: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              {/* NEW: Charges */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="extraKmCharge">Extra KM Charge</Label>
+                  <Input
+                    id="extraKmCharge"
+                    type="number"
+                    step="0.01"
+                    value={formData.extraKmCharge}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        extraKmCharge: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="earlyMorningCharges">Early Morning Charges</Label>
+                  <Input
+                    id="earlyMorningCharges"
+                    type="number"
+                    step="0.01"
+                    value={formData.earlyMorningCharges}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        earlyMorningCharges: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="eveningCharges">Evening Charges</Label>
+                  <Input
+                    id="eveningCharges"
+                    type="number"
+                    step="0.01"
+                    value={formData.eveningCharges}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        eveningCharges: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* NEW: Video URL */}
+              <div className="space-y-2">
+                <Label htmlFor="videoUrl">Video URL</Label>
+                <Input
+                  id="videoUrl"
+                  type="url"
+                  value={formData.videoUrl}
+                  onChange={(e) =>
+                    setFormData({ ...formData, videoUrl: e.target.value })
+                  }
+                  placeholder="https://…"
                 />
               </div>
             </TabsContent>
@@ -471,12 +612,17 @@ useEffect(() => {
             <TabsContent value="insurance" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="insurancePolicyNumber">Insurance Policy Number *</Label>
+                  <Label htmlFor="insurancePolicyNumber">
+                    Insurance Policy Number *
+                  </Label>
                   <Input
                     id="insurancePolicyNumber"
                     value={formData.insurancePolicyNumber}
                     onChange={(e) =>
-                      setFormData({ ...formData, insurancePolicyNumber: e.target.value })
+                      setFormData({
+                        ...formData,
+                        insurancePolicyNumber: e.target.value,
+                      })
                     }
                     required
                   />
@@ -489,7 +635,10 @@ useEffect(() => {
                     type="date"
                     value={formData.insuranceStartDate}
                     onChange={(e) =>
-                      setFormData({ ...formData, insuranceStartDate: e.target.value })
+                      setFormData({
+                        ...formData,
+                        insuranceStartDate: e.target.value,
+                      })
                     }
                     required
                   />
@@ -502,19 +651,27 @@ useEffect(() => {
                     type="date"
                     value={formData.insuranceEndDate}
                     onChange={(e) =>
-                      setFormData({ ...formData, insuranceEndDate: e.target.value })
+                      setFormData({
+                        ...formData,
+                        insuranceEndDate: e.target.value,
+                      })
                     }
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="insuranceContactNumber">Insurance Contact Number *</Label>
+                  <Label htmlFor="insuranceContactNumber">
+                    Insurance Contact Number *
+                  </Label>
                   <Input
                     id="insuranceContactNumber"
                     value={formData.insuranceContactNumber}
                     onChange={(e) =>
-                      setFormData({ ...formData, insuranceContactNumber: e.target.value })
+                      setFormData({
+                        ...formData,
+                        insuranceContactNumber: e.target.value,
+                      })
                     }
                     required
                   />
@@ -525,7 +682,9 @@ useEffect(() => {
                   <Input
                     id="rtoCode"
                     value={formData.rtoCode}
-                    onChange={(e) => setFormData({ ...formData, rtoCode: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, rtoCode: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -534,33 +693,33 @@ useEffect(() => {
           </Tabs>
 
           <DialogFooter className="flex items-center justify-between">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
 
-          {activeTab === 'insurance' ? (
-            <div className="flex gap-2">
+            {activeTab === 'insurance' ? (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setActiveTab('vehicle')}
+                >
+                  ← Back
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Saving...' : vehicle ? 'Update' : 'Create'}
+                </Button>
+              </div>
+            ) : (
               <Button
                 type="button"
-                variant="ghost"
-                onClick={() => setActiveTab('vehicle')}
+                disabled={loading}
+                onClick={() => setActiveTab('insurance')}
               >
-                ← Back
+                Next
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Saving...' : vehicle ? 'Update' : 'Create'}
-              </Button>
-            </div>
-          ) : (
-            <Button
-              type="button"
-              disabled={loading}
-              onClick={() => setActiveTab('insurance')}
-            >
-              Next
-            </Button>
-          )}
-        </DialogFooter>
+            )}
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
