@@ -1,5 +1,15 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import {
+  initVehicleTypeMap,
+  fetchVehicleTypes,
+  upsertDriverCosts,
+  fetchDriverCostsByVendor,   // <-- NEW
+  vtId,
+  vtName,                      // <-- NEW
+  type VehicleTypeRow,
+} from '../../services/vendorPricing';
+import { useToast } from '@/hooks/use-toast';
 
 interface DriverCost {
   id?: string;
@@ -27,6 +37,39 @@ export default function DriverCostTab({ vendorId }: { vendorId: string }) {
     morningCharges: '',
     eveningCharges: '',
   });
+
+  const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeRow[]>([]);
+
+  useEffect(() => {
+  let alive = true;
+  (async () => {
+    try {
+      await initVehicleTypeMap();
+      const vts = await fetchVehicleTypes();
+      if (alive) setVehicleTypes(vts || []);
+
+      // NEW: load saved rows for this vendor
+      const saved = await fetchDriverCostsByVendor(vendorId);
+      if (!alive) return;
+
+      const mapped = (saved || []).map((r: any) => ({
+        id: String(r.id ?? `${r.vehicleTypeId}-${Math.random()}`),
+        vehicleType: r.vehicleTypeName || vtName(r.vehicleTypeId) || '',
+        driverBhatta: r.driverBhatta ?? '',
+        foodCost: r.foodCost ?? '',
+        accomCost: r.accomodationCost ?? '',
+        extraCost: r.extraCost ?? '',
+        morningCharges: r.morningPerHour ?? '',
+        eveningCharges: r.eveningPerHour ?? '',
+      }));
+      setItems(mapped);
+    } catch (e) {
+      console.error('driver-cost load failed', e);
+      setItems([]);
+    }
+  })();
+  return () => { alive = false; };
+}, [vendorId]);
 
   const set = (k: keyof DriverCost, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -57,28 +100,46 @@ export default function DriverCostTab({ vendorId }: { vendorId: string }) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const save = () => {
-    const normalized: DriverCost = {
-      ...form,
-      driverBhatta: Number(form.driverBhatta || 0),
-      foodCost: Number(form.foodCost || 0),
-      accomCost: Number(form.accomCost || 0),
-      extraCost: Number(form.extraCost || 0),
-      morningCharges: Number(form.morningCharges || 0),
-      eveningCharges: Number(form.eveningCharges || 0),
-    };
-
-    if (isEditing && editingIndex !== null) {
-      setItems((prev) => {
-        const copy = [...prev];
-        copy[editingIndex] = { ...copy[editingIndex], ...normalized };
-        return copy;
-      });
-    } else {
-      setItems((prev) => [...prev, { ...normalized, id: String(Date.now()) }]);
-    }
-    setOpen(false);
+  const { toast } = useToast();
+const save = async () => {
+  const normalized: DriverCost = {
+    ...form,
+    driverBhatta: Number(form.driverBhatta || 0),
+    foodCost: Number(form.foodCost || 0),
+    accomCost: Number(form.accomCost || 0),
+    extraCost: Number(form.extraCost || 0),
+    morningCharges: Number(form.morningCharges || 0),
+    eveningCharges: Number(form.eveningCharges || 0),
   };
+
+  // update UI list
+  if (isEditing && editingIndex !== null) {
+    setItems((prev) => {
+      const copy = [...prev];
+      copy[editingIndex] = { ...copy[editingIndex], ...normalized };
+      return copy;
+    });
+  } else {
+    setItems((prev) => [...prev, { ...normalized, id: String(Date.now()) }]);
+  }
+
+  // persist single-row upsert
+  try {
+    await upsertDriverCosts(vendorId, [{
+      vehicleTypeId: vtId(normalized.vehicleType),
+      driverBhatta: Number(normalized.driverBhatta || 0),
+      foodCost: Number(normalized.foodCost || 0),
+      accomodationCost: Number(normalized.accomCost || 0),
+      extraCost: Number(normalized.extraCost || 0),
+      morningPerHour: Number(normalized.morningCharges || 0),
+      eveningPerHour: Number(normalized.eveningCharges || 0),
+    }]);
+    toast({ title: 'Saved', description: 'Driver cost saved.' });
+  } catch (e: any) {
+    toast({ title: 'Error', description: e?.message ?? 'Failed to save driver cost' });
+  }
+  setOpen(false);
+};
 
   return (
     <div>
@@ -164,14 +225,12 @@ export default function DriverCostTab({ vendorId }: { vendorId: string }) {
                   value={form.vehicleType}
                   onChange={(e) => set('vehicleType', e.target.value)}
                 >
-                  <option value="">Choose Any One</option>
-                  <option value="Sedan">Sedan</option>
-                  <option value="MUV 6+1">MUV 6+1</option>
-                  <option value="Innova">Innova</option>
-                  <option value="Innova Crysta 6+1">Innova Crysta 6+1</option>
-                  <option value="Tempo Traveller 12 Seater">
-                    Tempo Traveller 12 Seater
-                  </option>
+                  <option value="">Choose Vehicle Type</option>
+                  {vehicleTypes.map((vt) => (
+                    <option key={vt.id} value={vt.name}>
+                      {vt.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 

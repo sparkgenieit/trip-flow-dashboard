@@ -22,17 +22,68 @@ export default function DriverDocumentsForm(props: {
 }) {
   const { value: v, onChange } = props;
 
-  // derive tiles from either v.documents or legacy single-file fields
+  // ADD helpers to normalize url vs file
+  const isImg = (u?: string | null) => !!u && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(u);
+
   const derivedFromLegacy = useMemo<DriverDoc[]>(() => {
     const arr: DriverDoc[] = [];
-    if (v.docAadhar)  arr.push({ id: 'aadhar',  type: 'Aadhar Card',  file: v.docAadhar,  name: v.docAadhar.name });
-    if (v.docPan)     arr.push({ id: 'pan',     type: 'PAN Card',     file: v.docPan,     name: v.docPan.name });
-    if (v.docLicense) arr.push({ id: 'license', type: 'License Card', file: v.docLicense, name: v.docLicense.name });
-    if (v.docAddressProof) arr.push({ id: 'voter', type: 'Voter ID', file: v.docAddressProof, name: v.docAddressProof.name });
-    return arr;
-  }, [v.docAadhar, v.docPan, v.docLicense, v.docAddressProof]);
 
-  const documents: DriverDoc[] = (v as any).documents?.length ? (v as any).documents : derivedFromLegacy;
+    // Aadhaar
+    if (v.docAadhar || v.docAadharUrl) {
+      arr.push({
+        id: 'aadhar',
+        type: 'Aadhar Card',
+        file: v.docAadhar ?? undefined,
+        name: v.docAadhar?.name ?? 'Aadhaar',
+        url: v.docAadharUrl ?? undefined,
+      });
+    }
+
+    // PAN
+    if (v.docPan || v.docPanUrl) {
+      arr.push({
+        id: 'pan',
+        type: 'PAN Card',
+        file: v.docPan ?? undefined,
+        name: v.docPan?.name ?? 'PAN',
+        url: v.docPanUrl ?? undefined,
+      });
+    }
+
+    // Voter
+    if (v.docAddressProof || v.docVoterUrl) {
+      arr.push({
+        id: 'voter',
+        type: 'Voter ID',
+        file: v.docAddressProof ?? undefined,
+        name: v.docAddressProof?.name ?? 'Voter ID',
+        url: v.docVoterUrl ?? undefined,
+      });
+    }
+
+    // License
+    if (v.docLicense || v.docLicenseUrl) {
+      arr.push({
+        id: 'license',
+        type: 'License Card',
+        file: v.docLicense ?? undefined,
+        name: v.docLicense?.name ?? 'License',
+        url: v.docLicenseUrl ?? undefined,
+      });
+    }
+
+    return arr;
+    // include url deps so edit prefill re-renders correctly
+  }, [
+    v.docAadhar, v.docPan, v.docLicense, v.docAddressProof,
+    v.docAadharUrl, v.docPanUrl, v.docVoterUrl, v.docLicenseUrl,
+  ]);
+
+  const documents: DriverDoc[] =
+    Array.isArray((v as any).documents) && (v as any).documents.length
+      ? (v as any).documents
+      : derivedFromLegacy;
+
 
   // modal state
   const [open, setOpen] = useState(false);
@@ -54,10 +105,10 @@ export default function DriverDocumentsForm(props: {
 
     // also mirror into legacy fields so nothing breaks elsewhere
     const mirror: Partial<DriverFormData> = {};
-    if (docType === 'Aadhar Card')  mirror.docAadhar = file;
-    if (docType === 'PAN Card')     mirror.docPan = file;
-    if (docType === 'License Card') mirror.docLicense = file;
-    if (docType === 'Voter ID')     mirror.docAddressProof = file;
+    if (docType === 'Aadhar Card')  { mirror.docAadhar = file;  mirror.docAadharUrl = null; }
+    if (docType === 'PAN Card')     { mirror.docPan = file;     mirror.docPanUrl = null; }
+    if (docType === 'License Card') { mirror.docLicense = file;  mirror.docLicenseUrl = null; }
+    if (docType === 'Voter ID')     { mirror.docAddressProof = file; mirror.docVoterUrl = null; }
 
     applyPatch(next, mirror);
     // reset modal fields
@@ -69,12 +120,11 @@ export default function DriverDocumentsForm(props: {
   const removeDoc = (d: DriverDoc) => {
     const next = documents.filter(x => x.id !== d.id && x.type !== d.type);
 
-    const mirror: Partial<DriverFormData> = {};
-    if (d.type === 'Aadhar Card')  mirror.docAadhar = null as any;
-    if (d.type === 'PAN Card')     mirror.docPan = null as any;
-    if (d.type === 'License Card') mirror.docLicense = null as any;
-    if (d.type === 'Voter ID')     mirror.docAddressProof = null as any;
-
+  const mirror: Partial<DriverFormData> = {};
+  if (d.type === 'Aadhar Card')  { mirror.docAadhar = null as any;  mirror.docAadharUrl = null; }
+  if (d.type === 'PAN Card')     { mirror.docPan = null as any;     mirror.docPanUrl = null; }
+  if (d.type === 'License Card') { mirror.docLicense = null as any;  mirror.docLicenseUrl = null; }
+  if (d.type === 'Voter ID')     { mirror.docAddressProof = null as any; mirror.docVoterUrl = null; }
     applyPatch(next, mirror);
   };
 
@@ -94,19 +144,43 @@ export default function DriverDocumentsForm(props: {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {documents.map((d) => (
               <div key={d.id} className="relative flex items-center justify-between rounded-md border p-4">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
+                {/* icon or thumb */}
+                {d.url && isImg(d.url) ? (
+                  <img
+                    src={d.url}
+                    alt={d.type}
+                    className="w-12 h-12 rounded-md object-cover border"
+                  />
+                ) : (
                   <div className="w-12 h-12 rounded-md border flex items-center justify-center text-xs">📁</div>
-                  <div className="text-sm font-medium">{d.type}</div>
+                )}
+
+                <div className="text-sm">
+                  <div className="font-medium">{d.type}</div>
+                  {d.name ? <div className="text-xs text-muted-foreground">{d.name}</div> : null}
+                  {d.url ? (
+                    <a
+                      href={d.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs underline"
+                    >
+                      View
+                    </a>
+                  ) : null}
                 </div>
-                <button
-                  type="button"
-                  aria-label="Remove"
-                  className="rounded-full w-6 h-6 flex items-center justify-center border hover:bg-muted"
-                  onClick={() => removeDoc(d)}
-                >
-                  ×
-                </button>
               </div>
+
+              <button
+                type="button"
+                aria-label="Remove"
+                className="rounded-full w-6 h-6 flex items-center justify-center border hover:bg-muted"
+                onClick={() => removeDoc(d)}
+              >
+                ×
+              </button>
+            </div>
             ))}
           </div>
         )}

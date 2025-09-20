@@ -7,8 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { getAvailableVehicles, assignVehicleToBooking } from '@/services/vehicles';
-import { getAvailableDrivers, assignDriverToVehicle } from '@/services/drivers';
-
+import { assignDriverToVehicle } from '@/services/drivers';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';

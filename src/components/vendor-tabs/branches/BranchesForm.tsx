@@ -18,41 +18,52 @@ type Branch = {
   _localKey: string;          // stable key for list rendering
 };
 
-/** ------------- Replace these with your real API calls ------------- */
+import { fetchBranches, upsertBranches } from '../services/vendorService';
+
+function toDto(b: Branch) {
+  const pct = String(b.gstPercent ?? '').replace(/[^\d]/g, '');
+  return {
+    id: b.id ? Number(b.id) : undefined,
+    name: b.name,
+    location: b.location,
+    email: b.email,
+    primaryMobile: b.primaryMobile,
+    altMobile: b.altMobile,
+    country: b.country,
+    state: b.state,
+    city: b.city,
+    pincode: b.pincode,
+    gstType: b.gstType,
+    gstPercent: pct ? Number(pct) : null,
+    address: b.address,
+  };
+}
+
 async function apiFetchBranches(vendorId?: string): Promise<Branch[]> {
   if (!vendorId) return [];
-  // Mock one pre-filled branch like your screenshot
-  return [
-    {
-      id: 'b1',
-      name: 'DVI-RAMESWARAM',
-      location: 'RAMESWARAM',
-      email: 'vsr@dvi.co.in',
-      primaryMobile: '9047776899',
-      altMobile: '9047776899',
-      country: 'India',
-      state: 'Tamil Nadu',
-      city: 'Rameswaram',
-      pincode: '62362',
-      gstType: 'Included',
-      gstPercent: '5 % GST - %5',
-      address: 'rameswaram',
-      _localKey: 'b1',
-    },
-  ];
+  const rows = await fetchBranches(vendorId);
+  return rows.map((r) => ({
+    id: String(r.id),
+    name: r.name || '',
+    location: r.location || '',
+    email: r.email || '',
+    primaryMobile: r.primaryMobile || '',
+    altMobile: r.altMobile || '',
+    country: r.country || 'India',
+    state: r.state || '',
+    city: r.city || '',
+    pincode: r.pincode || '',
+    gstType: (r.gstType as any) || 'Included',
+    gstPercent: (r.gstPercent != null ? `${r.gstPercent} % GST - %${r.gstPercent}` : '5 % GST - %5') as Branch['gstPercent'],
+    address: r.address || '',
+    _localKey: Math.random().toString(36).slice(2),
+  }));
 }
+
 async function apiUpsertBranches(vendorId: string, branches: Branch[]) {
-  // Send to your backend. On success, return normalized branches (with ids)
-  return new Promise<Branch[]>((resolve) =>
-    setTimeout(() => {
-      resolve(
-        branches.map((b, i) => ({
-          ...b,
-          id: b.id ?? `new-${i}`,
-        }))
-      );
-    }, 400)
-  );
+  const cleaned = branches.map(toDto);
+  const saved = await upsertBranches(vendorId, cleaned);
+  return saved;
 }
 /** ------------------------------------------------------------------ */
 
@@ -74,7 +85,17 @@ function newEmptyBranch(): Branch {
   };
 }
 
-export default function BranchesForm({ vendorId }: { vendorId?: string }) {
+export default function BranchesForm(
+  {
+    vendorId,
+    onBack,
+    onContinue,
+  }: {
+    vendorId?: string;
+    onBack?: () => void;
+    onContinue?: () => void;
+  }
+) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -131,6 +152,22 @@ export default function BranchesForm({ vendorId }: { vendorId?: string }) {
       setSaving(false);
     }
   };
+
+  const saveAndContinue = async () => {
+  try {
+    await saveAll();           // reuse existing save logic
+    onContinue?.();            // advance to Step 3 (if provided)
+  } catch (err) {
+    // stay on this step if save fails
+    console.error('Failed to save branches', err);
+  }
+};
+
+const handleBack = () => {
+  if (onBack) onBack();        // go back to Step 1 (if provided)
+  else if (typeof window !== 'undefined') window.history.back();
+};
+
 
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading branches…</div>;
@@ -276,17 +313,26 @@ export default function BranchesForm({ vendorId }: { vendorId?: string }) {
         ))}
       </div>
 
-      <div className="pt-2">
-        <button
-          type="button"
-          onClick={saveAll}
-          className="px-4 py-2 rounded bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
-          disabled={saving || !vendorId}
-          title={!vendorId ? 'Save Basic Info first' : 'Save branches'}
-        >
-          {saving ? 'Saving…' : 'Save Branches'}
-        </button>
-      </div>
+      <div className="pt-2 flex items-center justify-between">
+  <button
+    type="button"
+    onClick={handleBack}
+    className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+    title="Back to Basic Info"
+  >
+    Back
+  </button>
+
+  <button
+    type="button"
+    onClick={saveAndContinue}
+    className="px-4 py-2 rounded bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+    disabled={saving || !vendorId}
+    title={!vendorId ? 'Save Basic Info first' : 'Save and continue'}
+  >
+    {saving ? 'Saving…' : 'Save & Continue'}
+  </button>
+</div>
     </div>
   );
 }

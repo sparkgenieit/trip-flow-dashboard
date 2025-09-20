@@ -1,3 +1,4 @@
+//DriverDetailsModal.tsx
 import React from 'react';
 import {
   Dialog,
@@ -5,9 +6,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+
+type Maybe<T> = T | null | undefined;
 
 // Browser-safe base URL for relative image paths
 const API_BASE_URL =
@@ -15,117 +17,88 @@ const API_BASE_URL =
   (typeof window !== 'undefined' && (window as any).__API_BASE_URL__) ||
   '';
 
-type Maybe<T> = T | null | undefined;
-
+/* -------------------- helpers -------------------- */
 function fmtDate(v: Maybe<string | number | Date>) {
   if (!v) return undefined;
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? undefined : d.toLocaleDateString();
 }
 
-function toUrl(path?: string) {
+function toUrl(path?: string | null) {
   if (!path) return undefined;
   if (/^https?:\/\//i.test(path)) return path;
-  return `${API_BASE_URL}/${path}`.replace(/([^:]\/)\/+/g, '$1'); // collapse //
+  return `${API_BASE_URL}/${String(path).replace(/^\/+/, '')}`.replace(/([^:]\/)\/+/g, '$1');
 }
 
-// Normalize any backend shape to one display object
+function isImageUrl(u?: string) {
+  return !!u && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(u);
+}
+
+/** Normalize a driver coming from GET /drivers/:id/full (new schema only) */
 function mapDriver(d: any) {
   if (!d) return null;
 
-  const fullName =
-    d?.profiles?.full_name ??
-    d?.fullName ??
-    d?.name ??
-    '';
+  const vendorName = d?.vendor?.companyReg || d?.vendor?.name || undefined;
 
-  const phone =
-    d?.profiles?.phone ??
-    d?.phone ??
-    d?.whatsappPhone ??
-    '';
+  const vehicleAssigned = d?.assignedVehicle?.registrationNumber
+    ? `${d.assignedVehicle.registrationNumber}${
+        d?.assignedVehicle?.model ? ` • ${d.assignedVehicle.model}` : ''
+      }`
+    : undefined;
 
-  const email = d?.profiles?.email ?? d?.email ?? '';
-
-  const licenseNumber = d?.license_number ?? d?.licenseNumber ?? '';
-  const licenseExpiryRaw = d?.license_expiry ?? d?.licenseExpiry ?? null;
-
-  const isAvailable =
-    typeof d?.is_available === 'boolean' ? d.is_available :
-    typeof d?.isAvailable === 'boolean' ? d.isAvailable :
-    undefined;
-
-  const isPartTime =
-    typeof d?.is_part_time === 'boolean' ? d.is_part_time :
-    typeof d?.isPartTime === 'boolean' ? d.isPartTime :
-    undefined;
-
-  const vendorName =
-    d?.vendors?.company_name ??
-    d?.vendor?.companyReg ??
-    d?.vendor?.name ??
-    d?.vendorName ??
-    null;
-
-  const vehicleNumber =
-    d?.vehicles?.vehicle_number ??
-    d?.assignedVehicle?.registrationNumber ??
-    null;
-
-  const vehicleModel =
-    d?.vehicles?.type ??
-    d?.assignedVehicle?.model ??
-    null;
-
-  // NEW FIELDS
-  const whatsappPhone = d?.whatsappPhone ?? d?.whatsapp_phone ?? null;
-  const altPhone = d?.altPhone ?? d?.alt_phone ?? null;
-  const licenseIssueDateRaw = d?.licenseIssueDate ?? d?.license_issue_date ?? null;
-  const dobRaw = d?.dob ?? d?.date_of_birth ?? null;
-  const gender = d?.gender ?? null;
-  const bloodGroup = d?.bloodGroup ?? d?.blood_group ?? null;
-  const aadhaarNumber = d?.aadhaarNumber ?? d?.aadhaar_number ?? null;
-  const panNumber = d?.panNumber ?? d?.pan_number ?? null;
-  const voterId = d?.voterId ?? d?.voter_id ?? null;
-  const address = d?.address ?? d?.profiles?.address ?? null;
-
-  // Images
-  const profileImage = d?.profileImage ?? d?.profile_image ?? null;
-  const licenseImage = d?.licenseImage ?? d?.license_image ?? null;
-  const rcImage = d?.rcImage ?? d?.rc_image ?? null;
+  // Document URLs (support older/newer shapes and fallbacks)
+  const aadharUrl = toUrl(
+    d?.documents?.aadharUrl ?? d?.documents?.aadhaarUrl ?? d?.documents?.aadhar ?? d?.documents?.aadhaar
+  );
+  const panUrl = toUrl(d?.documents?.panUrl ?? d?.documents?.pan);
+  const voterUrl = toUrl(d?.documents?.voterUrl ?? d?.documents?.voter);
+  // Prefer document license; fall back to driver.licenseImage
+  const licenseDoc = toUrl(d?.documents?.licenseUrl ?? d?.documents?.license ?? d?.licenseImage);
 
   return {
-    id: d?.id ?? d?.driver_id ?? '',
-    fullName,
-    phone,
-    email,
-    licenseNumber,
-    licenseExpiry: fmtDate(licenseExpiryRaw),
-    isAvailable,
-    isPartTime,
+    id: d?.id,
+    // BASIC
+    fullName: d?.fullName || '',
+    phone: d?.phone || '',
+    email: d?.email || '',
+    whatsappPhone: d?.whatsappPhone || '',
+    altPhone: d?.altPhone || '',
+    licenseNumber: d?.licenseNumber || '',
+    licenseIssueDate: fmtDate(d?.licenseIssueDate),
+    licenseExpiry: fmtDate(d?.licenseExpiry),
+    dob: fmtDate(d?.dob),
+    gender: d?.gender || '',
+    bloodGroup: d?.bloodGroup || '',
+    aadhaarNumber: d?.aadhaarNumber || '',
+    panNumber: d?.panNumber || '',
+    voterId: d?.voterId || '',
+    address: d?.address || '',
+    isAvailable: d?.isAvailable,
+    isPartTime: d?.isPartTime,
+
     vendorName,
-    vehicleNumber,
-    vehicleModel,
+    vehicleAssigned,
 
-    whatsappPhone,
-    altPhone,
-    licenseIssueDate: fmtDate(licenseIssueDateRaw),
-    dob: fmtDate(dobRaw),
-    gender,
-    bloodGroup,
-    aadhaarNumber,
-    panNumber,
-    voterId,
-    address,
+    // Images
+    profileImageUrl: toUrl(d?.profileImage),
+    // RC removed per new form — do not show
+    licenseImageUrl: licenseDoc,
 
-    profileImageUrl: toUrl(profileImage),
-    licenseImageUrl: toUrl(licenseImage),
-    rcImageUrl: toUrl(rcImage),
+    // Document previews
+    docs: {
+      aadharUrl,
+      panUrl,
+      voterUrl,
+      licenseUrl: licenseDoc,
+    },
+
+    cost: d?.costDetails || null,
+    feedback: d?.feedbackMeta || null,
   };
 }
 
 interface DriverDetailsModalProps {
-  driver: any | null; // accept mixed shapes; we normalize
+  driver: any | null; // driver from /drivers/:id/full
   onClose: () => void;
 }
 
@@ -136,6 +109,33 @@ const Row: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, valu
   </div>
 );
 
+const DocThumb: React.FC<{ label: string; url?: string }> = ({ label, url }) => (
+  <div className="space-y-1">
+    <div className="text-xs font-medium text-muted-foreground">{label}</div>
+    {url ? (
+      isImageUrl(url) ? (
+        <img
+          src={url}
+          alt={label}
+          className="w-24 h-24 rounded border object-cover"
+        />
+      ) : (
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs underline"
+          title="Open document"
+        >
+          View document
+        </a>
+      )
+    ) : (
+      <div className="text-xs text-muted-foreground">—</div>
+    )}
+  </div>
+);
+
 const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({ driver, onClose }) => {
   if (!driver) return null;
   const d = mapDriver(driver);
@@ -143,97 +143,93 @@ const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({ driver, onClose
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Driver Details</DialogTitle>
-          <DialogDescription>Full driver profile</DialogDescription>
-        </DialogHeader>
+      {/* cap height, make inner content scrollable and keep footer clickable */}
+      <DialogContent className="max-w-3xl p-0 overflow-hidden">
+        {/* Sticky header */}
+        <div className="px-6 pt-6 pb-3 border-b sticky top-0 bg-background z-10">
+          <DialogHeader className="p-0">
+            <DialogTitle>Driver Details</DialogTitle>
+            <DialogDescription>Full driver profile</DialogDescription>
+          </DialogHeader>
+        </div>
 
-        {/* Images */}
-        {(d.profileImageUrl || d.licenseImageUrl || d.rcImageUrl) && (
-          <div className="grid grid-cols-3 gap-4 pb-2">
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">Profile</div>
-              {d.profileImageUrl ? (
-                <img
-                  src={d.profileImageUrl}
-                  alt="Profile"
-                  className="w-24 h-24 object-cover rounded-full border"
-                />
-              ) : (
-                <div className="text-xs text-muted-foreground">—</div>
-              )}
+        {/* Scrollable body */}
+        <div className="px-6 pb-4 overflow-y-auto max-h-[70vh] space-y-4">
+          {/* Primary images (Profile + License only) */}
+          {(d.profileImageUrl || d.licenseImageUrl) && (
+            <div className="grid grid-cols-2 gap-6">
+              <DocThumb label="Profile" url={d.profileImageUrl} />
             </div>
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">License</div>
-              {d.licenseImageUrl ? (
-                <img
-                  src={d.licenseImageUrl}
-                  alt="License"
-                  className="w-24 h-24 object-cover rounded border"
-                />
-              ) : (
-                <div className="text-xs text-muted-foreground">—</div>
-              )}
+          )}
+
+          {/* Core details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Row label="Name" value={d.fullName} />
+              <Row label="Phone" value={d.phone} />
+              <Row label="Email" value={d.email} />
+              <Row label="WhatsApp" value={d.whatsappPhone} />
+              <Row label="Alternate Phone" value={d.altPhone} />
+              <Row label="Address" value={d.address} />
             </div>
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">RC</div>
-              {d.rcImageUrl ? (
-                <img
-                  src={d.rcImageUrl}
-                  alt="RC"
-                  className="w-24 h-24 object-cover rounded border"
-                />
-              ) : (
-                <div className="text-xs text-muted-foreground">—</div>
-              )}
+
+            <div className="space-y-2">
+              <Row label="License Number" value={d.licenseNumber} />
+              <Row label="License Issue Date" value={d.licenseIssueDate} />
+              <Row label="License Expiry" value={d.licenseExpiry} />
+              <Row
+                label="Status"
+                value={
+                  typeof d.isAvailable === 'boolean'
+                    ? d.isAvailable
+                      ? 'Available'
+                      : 'Unavailable'
+                    : '—'
+                }
+              />
+              <Row
+                label="Type"
+                value={
+                  typeof d.isPartTime === 'boolean'
+                    ? d.isPartTime
+                      ? 'Part Time'
+                      : 'Full Time'
+                    : '—'
+                }
+              />
+              <Row label="Vendor" value={d.vendorName ?? 'Independent'} />
+              <Row label="Vehicle Assigned" value={d.vehicleAssigned ?? 'Not assigned'} />
+            </div>
+
+            {/* Secondary details */}
+            <div className="space-y-2 md:col-span-2 pt-2 border-t">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Row label="DOB" value={d.dob} />
+                <Row label="Gender" value={d.gender} />
+                <Row label="Blood Group" value={d.bloodGroup} />
+                <Row label="Aadhaar" value={d.aadhaarNumber} />
+                <Row label="PAN" value={d.panNumber} />
+                <Row label="Voter ID" value={d.voterId} />
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Details */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Row label="Name" value={d.fullName} />
-            <Row label="Phone" value={d.phone} />
-            <Row label="Email" value={d.email} />
-            <Row label="WhatsApp" value={d.whatsappPhone} />
-            <Row label="Alternate Phone" value={d.altPhone} />
-            <Row label="Address" value={d.address} />
-          </div>
-
-          <div className="space-y-2">
-            <Row label="License Number" value={d.licenseNumber} />
-            <Row label="License Issue Date" value={d.licenseIssueDate} />
-            <Row label="License Expiry" value={d.licenseExpiry} />
-            <Row label="Status" value={d.isAvailable === undefined ? '—' : d.isAvailable ? 'Available' : 'Unavailable'} />
-            <Row label="Type" value={d.isPartTime === undefined ? '—' : d.isPartTime ? 'Part Time' : 'Full Time'} />
-            <Row label="Vendor" value={d.vendorName ?? 'Independent'} />
-            <Row
-              label="Vehicle Assigned"
-              value={
-                d.vehicleNumber
-                  ? `${d.vehicleNumber}${d.vehicleModel ? ` • ${d.vehicleModel}` : ''}`
-                  : 'Not assigned'
-              }
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2 pt-2 border-t">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Row label="DOB" value={d.dob} />
-              <Row label="Gender" value={d.gender} />
-              <Row label="Blood Group" value={d.bloodGroup} />
-              <Row label="Aadhaar" value={d.aadhaarNumber} />
-              <Row label="PAN" value={d.panNumber} />
-              <Row label="Voter ID" value={d.voterId} />
+          {/* Documents grid */}
+          <div className="mt-2 border-t pt-4">
+            <div className="text-sm font-semibold mb-2">Documents</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <DocThumb label="Aadhaar" url={d.docs?.aadharUrl} />
+              <DocThumb label="PAN" url={d.docs?.panUrl} />
+              <DocThumb label="Voter ID" url={d.docs?.voterUrl} />
+              <DocThumb label="License" url={d.docs?.licenseUrl} />
             </div>
           </div>
         </div>
 
-        <DialogFooter>
+        {/* Sticky footer with always-clickable Close */}
+        <div className="px-6 py-3 border-t sticky bottom-0 bg-background z-10 flex justify-end">
           <Button onClick={onClose}>Close</Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

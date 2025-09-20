@@ -1,5 +1,15 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import {
+  initVehicleTypeMap,
+  fetchVehicleTypes,
+  replaceLocalLimits,
+  listLocal,           // <-- NEW
+  vtId,
+  vtName,              // <-- NEW
+  type VehicleTypeRow,
+} from '../../services/vendorPricing';
+import { useToast } from '@/hooks/use-toast';
 
 type LocalItem = {
   id?: string;
@@ -22,6 +32,36 @@ export default function LocalKmTab({ vendorId }: { vendorId: string }) {
     kmLimit: '',
   });
 
+  const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeRow[]>([]);
+
+  useEffect(() => {
+  let alive = true;
+  (async () => {
+    try {
+      await initVehicleTypeMap();
+      const vts = await fetchVehicleTypes();
+      if (alive) setVehicleTypes(vts || []);
+
+      // NEW: fetch saved limits
+      const { limits } = await listLocal(vendorId);
+      if (!alive) return;
+
+      const mapped = (limits || []).map((r: any) => ({
+        id: String(r.id ?? `${r.vehicleTypeId}-${Math.random()}`),
+        vehicleType: vtName(r.vehicleTypeId) || '',
+        title: r.title ?? '',
+        hours: r.hours ?? '',
+        kmLimit: r.km ?? '',
+      }));
+      setItems(mapped);
+    } catch (e) {
+      console.error('local limits load failed', e);
+      setItems([]);
+    }
+  })();
+  return () => { alive = false; };
+}, [vendorId]);
+
   const set = (k: keyof LocalItem, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
   const addNew = () => {
@@ -41,24 +81,45 @@ export default function LocalKmTab({ vendorId }: { vendorId: string }) {
 
   const removeRow = (idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx));
 
-  const save = () => {
-    const normalized: LocalItem = {
-      ...form,
-      hours: Number(form.hours || 0),
-      kmLimit: Number(form.kmLimit || 0),
-    };
-
-    if (isEditing && editingIndex !== null) {
-      setItems((prev) => {
-        const copy = [...prev];
-        copy[editingIndex] = { ...copy[editingIndex], ...normalized };
-        return copy;
-      });
-    } else {
-      setItems((prev) => [...prev, { ...normalized, id: String(Date.now()) }]);
-    }
-    setOpen(false);
+  const { toast } = useToast();
+const save = async () => {
+  const normalized: LocalItem = {
+    ...form,
+    hours: Number(form.hours || 0),
+    kmLimit: Number(form.kmLimit || 0),
   };
+
+  // update UI list
+  if (isEditing && editingIndex !== null) {
+    setItems((prev) => {
+      const copy = [...prev];
+      copy[editingIndex] = { ...copy[editingIndex], ...normalized };
+      return copy;
+    });
+  } else {
+    setItems((prev) => [...prev, { ...normalized, id: String(Date.now()) }]);
+  }
+
+  // persist ALL rows currently in items (replace strategy)
+  try {
+    const rows = ([
+      // include the just-edited/added row
+      ...items.filter((_, idx) => !(isEditing && idx === editingIndex)),
+      { ...normalized, vehicleType: normalized.vehicleType },
+    ]).map((it) => ({
+      vehicleTypeId: vtId(it.vehicleType),
+      title: it.title,
+      hours: Number(it.hours || 0),
+      km: Number(it.kmLimit || 0),
+    }));
+    await replaceLocalLimits(vendorId, rows);
+    toast({ title: 'Saved', description: 'Local KM limits saved.' });
+  } catch (e: any) {
+    toast({ title: 'Error', description: e?.message ?? 'Failed to save Local limits' });
+  }
+
+  setOpen(false);
+};
 
   return (
     <div>
@@ -126,11 +187,11 @@ export default function LocalKmTab({ vendorId }: { vendorId: string }) {
                   onChange={(e) => set('vehicleType', e.target.value)}
                 >
                   <option value="">Choose Vehicle Type</option>
-                  <option value="Sedan">Sedan</option>
-                  <option value="MUV 6+1">MUV 6+1</option>
-                  <option value="Innova">Innova</option>
-                  <option value="Innova Crysta 6+1">Innova Crysta 6+1</option>
-                  <option value="Tempo Traveller 12 Seater">Tempo Traveller 12 Seater</option>
+                  {vehicleTypes.map((vt) => (
+                    <option key={vt.id} value={vt.name}>
+                      {vt.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
