@@ -7,7 +7,6 @@ import { Plus, Search, Filter, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import CorporateBookingRequests from './CorporateBookingRequests';
 import { fetchAllVendors, deleteVendor } from '@/services/vendor';
-import VendorDetailsModal from './VendorDetailsModal';
 import { Link } from 'react-router-dom';
 
 interface Vendor {
@@ -22,7 +21,6 @@ const VendorsPage = () => {
   const [tab, setTab] = useState('vendors');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -121,23 +119,24 @@ const VendorsPage = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  {/* EDIT now navigates to /dashboard/vendors/:id/tabs */}
-                  <Button size="sm" variant="outline" asChild>
-                    <Link to={`/dashboard/vendors/${vendor.id}/tabs`}>Edit</Link>
-                  </Button>
+                {/* EDIT now navigates to /dashboard/vendors/:id/tabs */}
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`/dashboard/vendors/${vendor.id}/tabs`}>Edit</Link>
+                </Button>
 
-                  <Button size="sm" variant="outline" onClick={() => setViewingVendor(vendor)}>
-                    View Details
-                  </Button>
+                {/* VIEW DETAILS opens read-only page */}
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`/dashboard/view-vendors/${vendor.id}`}>View Details</Link>
+                </Button>
 
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDelete(String(vendor.id))}
-                  >
-                    Delete
-                  </Button>
-                </div>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleDelete(String(vendor.id))}
+                >
+                  Delete
+                </Button>
+              </div>
               </Card>
             ))}
           </div>
@@ -147,10 +146,6 @@ const VendorsPage = () => {
           <CorporateBookingRequests />
         </TabsContent>
       </Tabs>
-
-      {viewingVendor && (
-        <VendorDetailsModal vendor={viewingVendor} onClose={() => setViewingVendor(null)} />
-      )}
     </div>
   );
 };
