@@ -42,7 +42,7 @@ import AddVendorTabsPage from "@/pages/vendor/AddVendorTabsPage";
 import EditDriverPage from "@/pages/driver/EditDriverPage";
 import AddDriverPage from "@/pages/driver/AddDriverPage";
 import VendorVehicleAvailabilityChartPage from '@/pages/vendor/VehicleAvailabilityChart';
-
+import ViewVendorPage from "@/components/vendors/ViewVendorPage";
 
 
 const queryClient = new QueryClient();
@@ -78,6 +78,7 @@ const App = () => (
               <Route path="vehicles" element={<VehiclesPage />} />
               <Route path="vehicle-types" element={<VehicleTypesPage />} />
               <Route path="vendors" element={<VendorsPage />} />
+              <Route path="view-vendors/:vendorId" element={<ViewVendorPage />} />
               <Route path="bookings" element={<BookingsPage />} />
               <Route path="bookings/view" element={<ViewBooking />} />
               <Route path="trips" element={<TripsPage />} />

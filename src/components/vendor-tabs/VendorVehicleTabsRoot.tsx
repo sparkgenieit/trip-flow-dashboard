@@ -1,4 +1,3 @@
-// src/components/vendor-tabs/VendorVehicleTabsRoot.tsx
 'use client';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -6,7 +5,7 @@ import { Link } from 'react-router-dom';
 import BasicInfoForm from './basic-info/BasicInfoForm';
 import BranchesForm from './branches/BranchesForm';
 import VehicleTypeTabs from './vehicle-type/VehicleTypeTabs';
-import  VendorVehiclesTab from './vehicles/VendorVehiclesTab';
+import VendorVehiclesTab from './vehicles/VendorVehiclesTab';
 import VehiclePricebookPage from './pricebook/VehiclePricebookPage';
 import PermitCostList from './permit/PermitCostList';
 
@@ -15,14 +14,29 @@ type Step = 1 | 2 | 3 | 4 | 5 | 6;
 export default function VendorVehicleTabsRoot({
   mode,
   vendorId: vendorIdProp,
+  readOnly = false, // 👈 enables read-only view mode
 }: {
   mode: 'add' | 'edit';
   vendorId?: string;
+  readOnly?: boolean;
 }) {
   // When adding, we don’t have an id until Step 1 is saved.
   // When editing, we already have one.
   const [vendorId, setVendorId] = useState<string | undefined>(vendorIdProp);
   const [step, setStep] = useState<Step>(1);
+
+  // ====================== ADD BELOW your state/steps ======================
+// Normalizes `created` from BasicInfoForm to a string id
+const normalizeId = (value: unknown): string | undefined => {
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (value && typeof value === 'object' && 'id' in (value as any)) {
+    const maybe = (value as any).id;
+    if (typeof maybe === 'string' || typeof maybe === 'number') return String(maybe);
+  }
+  return undefined;
+};
+// ======================================================================
+
 
   const pageTitle = mode === 'add' ? 'Add Vendor' : 'Edit Vendor';
   const steps = useMemo(
@@ -30,46 +44,84 @@ export default function VendorVehicleTabsRoot({
     []
   );
 
-  // In ADD mode, lock steps > 1 until vendorId exists
-  const isLocked = (target: Step) => mode === 'add' && !vendorId && target > 1;
+  // In ADD mode, lock steps > 1 until vendorId exists.
+  // In read-only, never lock steps so the user can browse freely.
+  const isLocked = (target: Step) => !readOnly && mode === 'add' && !vendorId && target > 1;
 
   const goTo = (target: Step) => {
-    if (isLocked(target)) return; // don’t navigate if locked
+    if (isLocked(target)) return;
     setStep(target);
   };
 
   const renderStep = () => {
     switch (step) {
       case 1:
-  return (
-    <BasicInfoForm
-      mode={mode}
-      vendorId={vendorId}
-      onSaved={(created) => {
-        // BasicInfoForm sends a *string* id in ADD flow.
-        // Be defensive and also accept { id } shapes.
-        const id = typeof created === 'string' ? created : created?.id;
-        if (id && !vendorId) setVendorId(id);
-        setStep(2);
-      }}
-    />
-  );
+        return (
+          <div>
+            <fieldset disabled={readOnly}>
+            <BasicInfoForm
+              mode={mode}
+              vendorId={vendorId}
+              onSaved={(created: unknown) => {
+              if (readOnly) return;
+              const id = normalizeId(created);
+              if (id && !vendorId) setVendorId(id);
+              setStep(2);
+            }}
+            />
+          </fieldset>
+          </div>
+        );
+
       case 2:
-  return (
-    <BranchesForm
-      vendorId={vendorId}
-      onBack={() => setStep(1)}
-      onContinue={() => setStep(3)}
-    />
-  );
+        return (
+          <div>
+            <fieldset disabled={readOnly}>
+            <BranchesForm
+              vendorId={vendorId}
+              onBack={() => !readOnly && setStep(1)}
+              onContinue={() => !readOnly && setStep(3)}
+            />
+          </fieldset>
+          </div>
+        );
+
       case 3:
-        return <VehicleTypeTabs vendorId={vendorId} />;
+        return (
+          <div>
+            <fieldset disabled={readOnly}>
+              <VehicleTypeTabs vendorId={vendorId} />
+            </fieldset>
+          </div>
+        );
+
       case 4:
-        return <VendorVehiclesTab vendorId={vendorId} />;
+        return (
+          <div>
+            <fieldset disabled={readOnly}>
+              <VendorVehiclesTab vendorId={vendorId} />
+            </fieldset>
+          </div>
+        );
+
       case 5:
-        return <VehiclePricebookPage vendorId={vendorId} />;
+        return (
+          <div>
+            <fieldset disabled={readOnly}>
+              <VehiclePricebookPage vendorId={vendorId} />
+            </fieldset>
+          </div>
+        );
+
       case 6:
-        return <PermitCostList vendorId={vendorId} />;
+        return (
+          <div>
+            <fieldset disabled={readOnly}>
+              <PermitCostList vendorId={vendorId} />
+            </fieldset>
+          </div>
+        );
+
       default:
         return null;
     }
